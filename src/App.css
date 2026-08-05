@@ -592,17 +592,20 @@
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   outline: none;
   background: #fff;
+  resize: vertical;
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
@@ -656,8 +659,60 @@
   margin-top: 12px;
 }
 
+.entity-note {
+  margin: 6px 0 0;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.detail-header .entity-note {
+  margin-top: 10px;
+  font-size: 1rem;
+}
+
+.folder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.folder-menu-wrap,
+.detail-header-menu-wrap {
+  position: relative;
+}
+
+.folder-item-menu,
+.detail-header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  width: min(240px, calc(100vw - 40px));
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.detail-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-header-top .eyebrow {
+  margin: 0;
+}
+
 .project-deadline {
-  margin: 0 0 14px;
+  margin: 8px 0 14px;
   font-size: 0.92rem;
   color: #64748b;
 }
@@ -1301,9 +1356,103 @@
   border-bottom: none;
 }
 
+.wish-pool-dock {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+}
+
+.wish-pool-button {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #f0fdfa;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 12px 28px rgba(15, 118, 110, 0.28);
+  cursor: pointer;
+}
+
+.wish-pool-button:hover {
+  background: #0d9488;
+}
+
+.wish-pool-modal {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(82vh, 720px);
+  overflow: auto;
+}
+
+.wish-pool-intro {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.wish-pool-status {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.wish-pool-status.is-ok {
+  color: #0f766e;
+}
+
+.wish-pool-status.is-error {
+  color: #b45309;
+}
+
+.wish-pool-list-wrap {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.wish-pool-list {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wish-pool-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.wish-pool-item p {
+  margin: 0;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.wish-pool-item small {
+  display: block;
+  margin-top: 6px;
+  color: #94a3b8;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding-top: 80px;
+  }
+
+  .wish-pool-dock {
+    right: 12px;
+    bottom: 12px;
   }
 
   .page-header {

@@ -11,7 +11,10 @@ import { formatAmount } from '../utils/money'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreateProjectModal } from './CreateProjectModal'
+import { NoteEditModal } from './NoteEditModal'
+import { RenameModal } from './RenameModal'
 import { SelectionMenu } from './SelectionMenu'
+import { WishPool } from './WishPool'
 
 interface HomeScreenProps {
   folders: ProjectFolder[]
@@ -21,11 +24,34 @@ interface HomeScreenProps {
   onDeleteProjects: (ids: string[]) => void
   onMoveProjectsToFolder: (ids: string[], folderId: string | null) => void
   onReorderFolders: (sourceId: string, targetId: string) => void
+  onUpdateProjectNote: (projectId: string, note: string) => void
+  onUpdateProjectName: (projectId: string, name: string) => void
+  onUpdateFolderNote: (folderId: string, note: string) => void
+  onUpdateFolderName: (folderId: string, name: string) => void
   onOpenProject: (projectId: string) => void
 }
 
 const DRAG_MIME = 'application/x-savings-project-ids'
 const FOLDER_DRAG_MIME = 'application/x-savings-folder-id'
+
+const HOME_QUOTES = [
+  '我最大的不足，就是餘額不足；我最大的缺點，就是缺點錢',
+  '我的存款乾淨得很徹底，一塵不染，連灰塵都找不到',
+  '我跟財神的關係，大概是對方早就封鎖我了',
+  '以前以為錢可以買到一切，後來發現不行，因為我的錢不夠',
+  '我也不是不想存錢，只是我的錢都有它們自己的想法，想去別人的口袋',
+  '花錢時覺得自己是富豪，看帳單時覺得自己是乞丐',
+  '帳戶裡的餘額就像前任的承諾，少得可憐',
+  '我的口袋很單純，從不搞複雜的數字遊戲',
+  '有人說談錢傷感情，但談感情真的很傷錢',
+  '錢可以用買到快樂，但我買不起快樂',
+  '只要我不看銀行APP，我就永遠不知道自己有多窮',
+  '我不是在花錢，我是在刺激經濟，燃燒自己照亮商家',
+] as const
+
+function pickHomeQuote() {
+  return HOME_QUOTES[Math.floor(Math.random() * HOME_QUOTES.length)]
+}
 
 function getProgress(current: number, target: number) {
   if (target <= 0) return 0
@@ -51,6 +77,10 @@ export function HomeScreen({
   onDeleteProjects,
   onMoveProjectsToFolder,
   onReorderFolders,
+  onUpdateProjectNote,
+  onUpdateProjectName,
+  onUpdateFolderNote,
+  onUpdateFolderName,
   onOpenProject,
 }: HomeScreenProps) {
   const [projectModalOpen, setProjectModalOpen] = useState(false)
@@ -64,6 +94,16 @@ export function HomeScreen({
   const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null)
   const [folderDropTargetId, setFolderDropTargetId] = useState<string | null>(null)
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({})
+  const [folderMenuId, setFolderMenuId] = useState<string | null>(null)
+  const [noteTarget, setNoteTarget] = useState<
+    | { type: 'project'; id: string; name: string; note?: string }
+    | { type: 'folder'; id: string; name: string; note?: string }
+    | null
+  >(null)
+  const [renameTarget, setRenameTarget] = useState<
+    { type: 'project' | 'folder'; id: string; name: string } | null
+  >(null)
+  const [homeQuote] = useState(pickHomeQuote)
 
   const isFolderOpen = (key: string) => collapsedFolders[key] !== true
 
@@ -254,6 +294,7 @@ export function HomeScreen({
             {formatAmount(project.currentAmount)}
             <span> / {formatAmount(project.targetAmount)}</span>
           </p>
+          {project.note ? <p className="entity-note">{project.note}</p> : null}
           <p className={`project-deadline ${deadlineClass}`}>{formatDeadlineSummary(project)}</p>
           <div className="progress-track" aria-hidden="true">
             <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -284,6 +325,9 @@ export function HomeScreen({
           .filter((folderId) =>
             selectedProjects.every((project) => project.folderId === folderId),
           )
+
+  const selectedSingleProject =
+    selectedProjects.length === 1 ? selectedProjects[0] : null
 
   return (
     <div
@@ -316,8 +360,30 @@ export function HomeScreen({
             selectedCount={selectedIds.length}
             canRemoveFromFolder={canRemoveFromFolder}
             currentFolderIds={currentFolderIds}
+            hasNote={Boolean(selectedSingleProject?.note)}
             onClose={() => setSelectionMenuOpen(false)}
             onToggleSelectionMode={toggleSelectionMode}
+            onRename={
+              selectedSingleProject
+                ? () =>
+                    setRenameTarget({
+                      type: 'project',
+                      id: selectedSingleProject.id,
+                      name: selectedSingleProject.name,
+                    })
+                : undefined
+            }
+            onEditNote={
+              selectedSingleProject
+                ? () =>
+                    setNoteTarget({
+                      type: 'project',
+                      id: selectedSingleProject.id,
+                      name: selectedSingleProject.name,
+                      note: selectedSingleProject.note,
+                    })
+                : undefined
+            }
             onMoveToFolder={moveSelectedToFolder}
             onDelete={handleDelete}
           />
@@ -348,13 +414,13 @@ export function HomeScreen({
         </div>
       </div>
 
+      <WishPool />
+
       <header className="page-header">
         <div>
           <p className="eyebrow">Savings Tracker</p>
           <h1>存錢系統</h1>
-          <p className="subtitle">
-            點擊專案可進入詳情；點左側圓點可選取，再用左上角 ⋯ 整理資料夾。
-          </p>
+          <p className="subtitle">{homeQuote}</p>
         </div>
       </header>
 
@@ -452,20 +518,89 @@ export function HomeScreen({
                             </button>
                             <div className="folder-title">
                               <h3>{folder.name}</h3>
+                              {folder.note ? <p className="entity-note">{folder.note}</p> : null}
                             </div>
-                            <span className="folder-count">{folderProjects.length} 個專案</span>
+                            <div className="folder-header-actions">
+                              <span className="folder-count">{folderProjects.length} 個專案</span>
+                              <div className="folder-menu-wrap">
+                                <button
+                                  type="button"
+                                  className="panel-toggle"
+                                  aria-label={`${folder.name}選單`}
+                                  aria-haspopup="menu"
+                                  aria-expanded={folderMenuId === folder.id}
+                                  title="更多"
+                                  onClick={() =>
+                                    setFolderMenuId((current) =>
+                                      current === folder.id ? null : folder.id,
+                                    )
+                                  }
+                                >
+                                  <span aria-hidden="true">⋯</span>
+                                </button>
+                                {folderMenuId === folder.id && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="menu-scrim"
+                                      aria-label="關閉選單"
+                                      onClick={() => setFolderMenuId(null)}
+                                    />
+                                    <div className="folder-item-menu" role="menu">
+                                      <button
+                                        type="button"
+                                        className="create-menu-item"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setFolderMenuId(null)
+                                          setRenameTarget({
+                                            type: 'folder',
+                                            id: folder.id,
+                                            name: folder.name,
+                                          })
+                                        }}
+                                      >
+                                        <span className="create-menu-icon" aria-hidden="true">
+                                          ✎
+                                        </span>
+                                        <span>
+                                          <strong>更改資料夾名稱</strong>
+                                        </span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="create-menu-item"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setFolderMenuId(null)
+                                          setNoteTarget({
+                                            type: 'folder',
+                                            id: folder.id,
+                                            name: folder.name,
+                                            note: folder.note,
+                                          })
+                                        }}
+                                      >
+                                        <span className="create-menu-icon" aria-hidden="true">
+                                          📝
+                                        </span>
+                                        <span>
+                                          <strong>
+                                            {folder.note ? '編輯備註' : '新增備註'}
+                                          </strong>
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </header>
-                          {open ? (
+                          {open && folderProjects.length > 0 ? (
                             <div id={contentId} className="folder-body">
-                              {folderProjects.length === 0 ? (
-                                <p className="folder-empty">
-                                  拖曳專案到這裡，或用 ⋯ 選單加入
-                                </p>
-                              ) : (
-                                <ul className="project-list">
-                                  {folderProjects.map(renderProjectCard)}
-                                </ul>
-                              )}
+                              <ul className="project-list">
+                                {folderProjects.map(renderProjectCard)}
+                              </ul>
                             </div>
                           ) : null}
                         </section>
@@ -537,6 +672,40 @@ export function HomeScreen({
         open={folderModalOpen}
         onClose={() => setFolderModalOpen(false)}
         onSubmit={onCreateFolder}
+      />
+      <NoteEditModal
+        open={Boolean(noteTarget)}
+        title={
+          noteTarget
+            ? `${noteTarget.note ? '編輯' : '新增'}備註 · ${noteTarget.name}`
+            : '備註'
+        }
+        initialNote={noteTarget?.note}
+        onClose={() => setNoteTarget(null)}
+        onSave={(note) => {
+          if (!noteTarget) return
+          if (noteTarget.type === 'project') onUpdateProjectNote(noteTarget.id, note)
+          else onUpdateFolderNote(noteTarget.id, note)
+        }}
+      />
+      <RenameModal
+        open={Boolean(renameTarget)}
+        title={
+          renameTarget?.type === 'folder' ? '更改資料夾名稱' : '更改專案名稱'
+        }
+        fieldLabel={renameTarget?.type === 'folder' ? '資料夾名稱' : '專案名稱'}
+        placeholder={
+          renameTarget?.type === 'folder'
+            ? '輸入新的資料夾名稱'
+            : '輸入新的專案名稱'
+        }
+        initialName={renameTarget?.name ?? ''}
+        onClose={() => setRenameTarget(null)}
+        onSave={(name) => {
+          if (!renameTarget) return
+          if (renameTarget.type === 'folder') onUpdateFolderName(renameTarget.id, name)
+          else onUpdateProjectName(renameTarget.id, name)
+        }}
       />
     </div>
   )

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Env (wish-pool Gmail notify, etc.)
+.env
+.env.*
+!.env.example
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
