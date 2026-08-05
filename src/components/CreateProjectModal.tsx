@@ -44,12 +44,13 @@ export function CreateProjectModal({ open, folders, onClose, onSubmit }: CreateP
 
     const folderValue = String(formData.get('folderId') ?? '')
     const folderId = folderValue === '' ? null : folderValue
+    const note = String(formData.get('note') ?? '').trim() || undefined
 
     if (!name || targetAmount == null || !isValidDeadline(deadline)) {
       return
     }
 
-    onSubmit({ name, targetAmount, deadline, folderId })
+    onSubmit({ name, targetAmount, deadline, folderId, note })
     event.currentTarget.reset()
     setDeadlineMode('days')
     onClose()
@@ -83,6 +84,16 @@ export function CreateProjectModal({ open, folders, onClose, onSubmit }: CreateP
               autoComplete="off"
             />
             <p className="field-hint">名稱不限格式，由你自由決定。</p>
+          </label>
+
+          <label className="field">
+            <span>備註（選填）</span>
+            <textarea
+              name="note"
+              rows={2}
+              placeholder="例如：每月發薪日存入"
+              autoComplete="off"
+            />
           </label>
 
           <label className="field">

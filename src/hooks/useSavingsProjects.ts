@@ -35,6 +35,10 @@ function isAutoTodayEntry(entry: SavingsEntry, today: string) {
   )
 }
 
+function isEarlyDepositEntry(entry: SavingsEntry, date: string) {
+  return entry.date === date && entry.note === EARLY_DEPOSIT_NOTE
+}
+
 const STORAGE_KEY = 'savings-system:data'
 
 interface SavingsData {
@@ -132,6 +136,7 @@ function normalizeProject(raw: unknown): SavingsProject | null {
   if (isLegacyProject(raw)) {
     return {
       ...raw,
+      note: undefined,
       deadline: { type: 'days', days: 30 },
       folderId: null,
       completedDates: [],
@@ -159,9 +164,13 @@ function normalizeProject(raw: unknown): SavingsProject | null {
     if (detailLayout.length === 0) detailLayout = [...DEFAULT_DETAIL_LAYOUT].filter((id) => id !== 'deposit')
   }
 
+  const note =
+    typeof project.note === 'string' && project.note.trim() ? project.note.trim() : undefined
+
   return {
     id: project.id,
     name: project.name,
+    note,
     targetAmount: project.targetAmount,
     currentAmount: project.currentAmount ?? entries.reduce((sum, entry) => sum + entry.amount, 0),
     createdAt: project.createdAt ?? new Date().toISOString(),
@@ -179,9 +188,12 @@ function normalizeFolder(raw: unknown): ProjectFolder | null {
   if (typeof raw !== 'object' || raw === null) return null
   const folder = raw as Partial<ProjectFolder>
   if (!folder.id || !folder.name) return null
+  const note =
+    typeof folder.note === 'string' && folder.note.trim() ? folder.note.trim() : undefined
   return {
     id: folder.id,
     name: folder.name,
+    note,
     createdAt: folder.createdAt ?? new Date().toISOString(),
   }
 }
@@ -240,9 +252,11 @@ export function useSavingsProjects() {
   }, [data])
 
   const createProject = useCallback((input: CreateProjectInput) => {
+    const note = input.note?.trim() || undefined
     const project: SavingsProject = {
       id: crypto.randomUUID(),
       name: input.name.trim(),
+      note,
       targetAmount: input.targetAmount,
       currentAmount: 0,
       createdAt: new Date().toISOString(),
@@ -262,9 +276,11 @@ export function useSavingsProjects() {
   }, [])
 
   const createFolder = useCallback((input: CreateFolderInput) => {
+    const note = input.note?.trim() || undefined
     const folder: ProjectFolder = {
       id: crypto.randomUUID(),
       name: input.name.trim(),
+      note,
       createdAt: new Date().toISOString(),
     }
     setData((prev) => ({
@@ -272,6 +288,52 @@ export function useSavingsProjects() {
       folders: insertByName(prev.folders, folder),
     }))
     return folder
+  }, [])
+
+  const updateProjectNote = useCallback((projectId: string, note: string) => {
+    const nextNote = note.trim() || undefined
+    setData((prev) =>
+      updateProject(prev, projectId, (project) => ({
+        ...project,
+        note: nextNote,
+      })),
+    )
+  }, [])
+
+  const updateProjectName = useCallback((projectId: string, name: string) => {
+    const nextName = name.trim()
+    if (!nextName) return
+    setData((prev) => {
+      const updated = updateProject(prev, projectId, (project) => ({
+        ...project,
+        name: nextName,
+      }))
+      return {
+        ...updated,
+        projects: sortByName(updated.projects),
+      }
+    })
+  }, [])
+
+  const updateFolderNote = useCallback((folderId: string, note: string) => {
+    const nextNote = note.trim() || undefined
+    setData((prev) => ({
+      ...prev,
+      folders: prev.folders.map((folder) =>
+        folder.id === folderId ? { ...folder, note: nextNote } : folder,
+      ),
+    }))
+  }, [])
+
+  const updateFolderName = useCallback((folderId: string, name: string) => {
+    const nextName = name.trim()
+    if (!nextName) return
+    setData((prev) => ({
+      ...prev,
+      folders: prev.folders.map((folder) =>
+        folder.id === folderId ? { ...folder, name: nextName } : folder,
+      ),
+    }))
   }, [])
 
   const deleteProjects = useCallback((ids: string[]) => {
@@ -441,6 +503,42 @@ export function useSavingsProjects() {
     [],
   )
 
+  const undoEarlyDeposit = useCallback((projectId: string, date: string) => {
+    const today = getTodayDateInputValue()
+    if (date <= today) return
+
+    setData((prev) =>
+      updateProject(prev, projectId, (project) => {
+        if (!(project.completedDates ?? []).includes(date)) return project
+        if (!getProjectDateKeys(project).includes(date)) return project
+
+        const earlyEntries = project.entries.filter((entry) => isEarlyDepositEntry(entry, date))
+        if (earlyEntries.length === 0) return project
+
+        const removedAmount = earlyEntries.reduce((sum, entry) => sum + entry.amount, 0)
+        const preservedAmount = getPlannedAmount(project, date) ?? removedAmount
+
+        const nextProject: SavingsProject = {
+          ...project,
+          completedDates: project.completedDates.filter((item) => item !== date),
+          currentAmount: Math.max(0, project.currentAmount - removedAmount),
+          entries: project.entries.filter((entry) => !isEarlyDepositEntry(entry, date)),
+        }
+
+        if (nextProject.randomDeposit.enabled) {
+          return {
+            ...nextProject,
+            plannedDeposits: regenerateFuturePlans(nextProject, nextProject.randomDeposit, {
+              [date]: preservedAmount,
+            }),
+          }
+        }
+
+        return nextProject
+      }),
+    )
+  }, [])
+
   const addEntry = useCallback((projectId: string, input: AddEntryInput) => {
     const date = input.date ?? getTodayDateInputValue()
     const entry: SavingsEntry = {
@@ -538,12 +636,17 @@ export function useSavingsProjects() {
     projects: sortByName(data.projects),
     createProject,
     createFolder,
+    updateProjectNote,
+    updateProjectName,
+    updateFolderNote,
+    updateFolderName,
     deleteProjects,
     deleteFolders,
     moveProjectsToFolder,
     reorderFolders,
     toggleTodayComplete,
     completePlannedDay,
+    undoEarlyDeposit,
     addEntry,
     updateRandomDeposit,
     regenerateRandomPlan,

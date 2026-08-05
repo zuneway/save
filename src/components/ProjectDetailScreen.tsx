@@ -30,18 +30,23 @@ import {
 import { formatAmount, parseAmount } from '../utils/money'
 import { CollapsiblePanel } from './CollapsiblePanel'
 import { DayStatusChart } from './DayStatusChart'
+import { NoteEditModal } from './NoteEditModal'
 import { ProgressRing } from './ProgressRing'
 import { RandomPlanTable } from './RandomPlanTable'
+import { RenameModal } from './RenameModal'
 
 interface ProjectDetailScreenProps {
   project: SavingsProject
   onBack: () => void
   onToggleTodayComplete: () => void
   onCompletePlannedDay: (date: string, kind: PlannedDayDepositKind) => void
+  onUndoEarlyDeposit: (date: string) => void
   onAddEntry: (input: AddEntryInput) => void
   onUpdateRandomDeposit: (input: UpdateRandomDepositInput) => void
   onRegenerateRandomPlan: () => void
   onUpdateDetailLayout: (layout: DetailPanelId[]) => void
+  onUpdateNote: (note: string) => void
+  onUpdateName: (name: string) => void
 }
 
 function getProgress(current: number, target: number) {
@@ -62,10 +67,13 @@ export function ProjectDetailScreen({
   onBack,
   onToggleTodayComplete,
   onCompletePlannedDay,
+  onUndoEarlyDeposit,
   onAddEntry,
   onUpdateRandomDeposit,
   onRegenerateRandomPlan,
   onUpdateDetailLayout,
+  onUpdateNote,
+  onUpdateName,
 }: ProjectDetailScreenProps) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -75,6 +83,9 @@ export function ProjectDetailScreen({
   const [makeupDate, setMakeupDate] = useState('')
   const [earlyDate, setEarlyDate] = useState('')
   const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [noteModalOpen, setNoteModalOpen] = useState(false)
+  const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [draggingId, setDraggingId] = useState<DetailPanelId | null>(null)
   const [dropTargetId, setDropTargetId] = useState<DetailPanelId | null>(null)
 
@@ -517,7 +528,11 @@ export function ProjectDetailScreen({
         )
       case 'randomPlanTable':
         return project.randomDeposit.enabled ? (
-          <RandomPlanTable project={project} onCompletePlannedDay={onCompletePlannedDay} />
+          <RandomPlanTable
+            project={project}
+            onCompletePlannedDay={onCompletePlannedDay}
+            onUndoEarlyDeposit={onUndoEarlyDeposit}
+          />
         ) : (
           <p className="folder-empty">請先在「存入金額設定」啟用隨機分配後查看此表。</p>
         )
@@ -553,8 +568,73 @@ export function ProjectDetailScreen({
       </div>
 
       <header className="detail-header">
-        <p className="eyebrow">專案詳情</p>
+        <div className="detail-header-top">
+          <p className="eyebrow">專案詳情</p>
+          <div className="detail-header-menu-wrap">
+            <button
+              type="button"
+              className="panel-toggle"
+              aria-label="專案選單"
+              aria-haspopup="menu"
+              aria-expanded={headerMenuOpen}
+              title="更多"
+              onClick={() => {
+                setAddMenuOpen(false)
+                setHeaderMenuOpen((open) => !open)
+              }}
+            >
+              <span aria-hidden="true">⋯</span>
+            </button>
+            {headerMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  className="menu-scrim"
+                  aria-label="關閉選單"
+                  onClick={() => setHeaderMenuOpen(false)}
+                />
+                <div className="detail-header-menu" role="menu">
+                  <button
+                    type="button"
+                    className="create-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setHeaderMenuOpen(false)
+                      setRenameModalOpen(true)
+                    }}
+                  >
+                    <span className="create-menu-icon" aria-hidden="true">
+                      ✎
+                    </span>
+                    <span>
+                      <strong>更改專案名稱</strong>
+                      <small>重新命名這個專案</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="create-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setHeaderMenuOpen(false)
+                      setNoteModalOpen(true)
+                    }}
+                  >
+                    <span className="create-menu-icon" aria-hidden="true">
+                      📝
+                    </span>
+                    <span>
+                      <strong>{project.note ? '編輯備註' : '新增備註'}</strong>
+                      <small>{project.note ? '修改目前備註' : '為這個專案加上備註'}</small>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
         <h1>{project.name}</h1>
+        {project.note ? <p className="entity-note">{project.note}</p> : null}
       </header>
 
       <div className="panel-toolbar">
@@ -621,6 +701,23 @@ export function ProjectDetailScreen({
           </CollapsiblePanel>
         ))}
       </div>
+
+      <NoteEditModal
+        open={noteModalOpen}
+        title={`${project.note ? '編輯' : '新增'}備註 · ${project.name}`}
+        initialNote={project.note}
+        onClose={() => setNoteModalOpen(false)}
+        onSave={onUpdateNote}
+      />
+      <RenameModal
+        open={renameModalOpen}
+        title="更改專案名稱"
+        fieldLabel="專案名稱"
+        placeholder="輸入新的專案名稱"
+        initialName={project.name}
+        onClose={() => setRenameModalOpen(false)}
+        onSave={onUpdateName}
+      />
     </div>
   )
 }

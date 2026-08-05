@@ -13,6 +13,7 @@ import { formatAmount } from '../utils/money'
 interface RandomPlanTableProps {
   project: SavingsProject
   onCompletePlannedDay: (date: string, kind: PlannedDayDepositKind) => void
+  onUndoEarlyDeposit: (date: string) => void
 }
 
 function formatDate(date: string) {
@@ -31,7 +32,13 @@ const STATUS_LABEL = {
   upcoming: '尚未到',
 } as const
 
-export function RandomPlanTable({ project, onCompletePlannedDay }: RandomPlanTableProps) {
+const EARLY_DEPOSIT_NOTE = '提早存入'
+
+export function RandomPlanTable({
+  project,
+  onCompletePlannedDay,
+  onUndoEarlyDeposit,
+}: RandomPlanTableProps) {
   const today = getTodayDateInputValue()
   const remainingAmount = getRemainingAmount(project)
   const totalDays = getTotalDays(project)
@@ -42,12 +49,19 @@ export function RandomPlanTable({ project, onCompletePlannedDay }: RandomPlanTab
     )
     return getProjectDateKeys(project).map((date, index) => {
       const status = getDayStatus(date, project)
+      const canUndoEarly =
+        status === 'completed' &&
+        date > today &&
+        project.entries.some(
+          (entry) => entry.date === date && entry.note === EARLY_DEPOSIT_NOTE,
+        )
       return {
         index: index + 1,
         date,
         amount: amountMap.get(date) ?? 0,
         status,
         isToday: date === today,
+        canUndoEarly,
       }
     })
   }, [project, today])
@@ -64,6 +78,11 @@ export function RandomPlanTable({ project, onCompletePlannedDay }: RandomPlanTab
     const amountText = depositAmount > 0 ? formatAmount(depositAmount) : 'NT$0'
     if (!window.confirm(`確定${label} ${formatDate(date)}（${amountText}）嗎？`)) return
     onCompletePlannedDay(date, kind)
+  }
+
+  const handleUndoEarly = (date: string) => {
+    if (!window.confirm(`確定撤回 ${formatDate(date)} 的提早存入嗎？`)) return
+    onUndoEarlyDeposit(date)
   }
 
   return (
@@ -116,6 +135,14 @@ export function RandomPlanTable({ project, onCompletePlannedDay }: RandomPlanTab
                         onClick={() => handleAction(row.date, 'early', row.amount)}
                       >
                         提早存入
+                      </button>
+                    ) : row.canUndoEarly ? (
+                      <button
+                        type="button"
+                        className="button button-secondary button-compact"
+                        onClick={() => handleUndoEarly(row.date)}
+                      >
+                        撤回
                       </button>
                     ) : (
                       <span className="action-placeholder">—</span>

@@ -1,19 +1,36 @@
 import { useEffect, useId, useRef } from 'react'
-import type { CreateFolderInput } from '../types/savings'
 
-interface CreateFolderModalProps {
+interface RenameModalProps {
   open: boolean
+  title: string
+  fieldLabel: string
+  placeholder?: string
+  initialName: string
   onClose: () => void
-  onSubmit: (input: CreateFolderInput) => void
+  onSave: (name: string) => void
 }
 
-export function CreateFolderModal({ open, onClose, onSubmit }: CreateFolderModalProps) {
+export function RenameModal({
+  open,
+  title,
+  fieldLabel,
+  placeholder = '輸入新名稱',
+  initialName,
+  onClose,
+  onSave,
+}: RenameModalProps) {
   const titleId = useId()
   const nameRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (open) nameRef.current?.focus()
-  }, [open])
+    if (open) {
+      const timer = window.setTimeout(() => {
+        nameRef.current?.focus()
+        nameRef.current?.select()
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+  }, [open, initialName])
 
   if (!open) return null
 
@@ -21,11 +38,8 @@ export function CreateFolderModal({ open, onClose, onSubmit }: CreateFolderModal
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const name = String(formData.get('name') ?? '').trim()
-    const note = String(formData.get('note') ?? '').trim() || undefined
     if (!name) return
-
-    onSubmit({ name, note })
-    event.currentTarget.reset()
+    onSave(name)
     onClose()
   }
 
@@ -39,7 +53,7 @@ export function CreateFolderModal({ open, onClose, onSubmit }: CreateFolderModal
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h2 id={titleId}>建立資料夾</h2>
+          <h2 id={titleId}>{title}</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="關閉">
             ×
           </button>
@@ -47,23 +61,14 @@ export function CreateFolderModal({ open, onClose, onSubmit }: CreateFolderModal
 
         <form className="modal-form" onSubmit={handleSubmit}>
           <label className="field">
-            <span>資料夾名稱</span>
+            <span>{fieldLabel}</span>
             <input
               ref={nameRef}
               name="name"
               type="text"
-              placeholder="例如：旅遊、生活開銷"
+              defaultValue={initialName}
+              placeholder={placeholder}
               required
-              autoComplete="off"
-            />
-          </label>
-
-          <label className="field">
-            <span>備註（選填）</span>
-            <textarea
-              name="note"
-              rows={2}
-              placeholder="例如：這季想存的項目"
               autoComplete="off"
             />
           </label>
@@ -73,7 +78,7 @@ export function CreateFolderModal({ open, onClose, onSubmit }: CreateFolderModal
               取消
             </button>
             <button type="submit" className="button button-primary">
-              建立資料夾
+              儲存名稱
             </button>
           </div>
         </form>

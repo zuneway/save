@@ -9,8 +9,11 @@ interface SelectionMenuProps {
   canRemoveFromFolder: boolean
   /** Folder IDs that every selected project already belongs to — hide from "加入資料夾". */
   currentFolderIds: string[]
+  hasNote?: boolean
   onClose: () => void
   onToggleSelectionMode: () => void
+  onEditNote?: () => void
+  onRename?: () => void
   onMoveToFolder: (folderId: string | null) => void
   onDelete: () => void
 }
@@ -22,8 +25,11 @@ export function SelectionMenu({
   selectedCount,
   canRemoveFromFolder,
   currentFolderIds,
+  hasNote = false,
   onClose,
   onToggleSelectionMode,
+  onEditNote,
+  onRename,
   onMoveToFolder,
   onDelete,
 }: SelectionMenuProps) {
@@ -74,6 +80,50 @@ export function SelectionMenu({
             <small>目前是{selectionMode === 'single' ? '單選' : '多選'}模式</small>
           </span>
         </button>
+
+        {selectedCount === 1 && (onRename || onEditNote) && (
+          <>
+            <div className="island-menu-divider" />
+            {onRename && (
+              <button
+                type="button"
+                className="create-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onClose()
+                  onRename()
+                }}
+              >
+                <span className="create-menu-icon" aria-hidden="true">
+                  ✎
+                </span>
+                <span>
+                  <strong>更改專案名稱</strong>
+                  <small>重新命名這個專案</small>
+                </span>
+              </button>
+            )}
+            {onEditNote && (
+              <button
+                type="button"
+                className="create-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onClose()
+                  onEditNote()
+                }}
+              >
+                <span className="create-menu-icon" aria-hidden="true">
+                  📝
+                </span>
+                <span>
+                  <strong>{hasNote ? '編輯備註' : '新增備註'}</strong>
+                  <small>{hasNote ? '修改目前備註' : '為這個專案加上備註'}</small>
+                </span>
+              </button>
+            )}
+          </>
+        )}
 
         <div className="island-menu-divider" />
 

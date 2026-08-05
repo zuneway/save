@@ -5,6 +5,7 @@ export type ProjectDeadline =
 export interface ProjectFolder {
   id: string
   name: string
+  note?: string
   createdAt: string
 }
 
@@ -30,6 +31,7 @@ export interface PlannedDeposit {
 export interface SavingsProject {
   id: string
   name: string
+  note?: string
   targetAmount: number
   currentAmount: number
   createdAt: string
@@ -50,10 +52,12 @@ export interface CreateProjectInput {
   targetAmount: number
   deadline: ProjectDeadline
   folderId?: string | null
+  note?: string
 }
 
 export interface CreateFolderInput {
   name: string
+  note?: string
 }
 
 export interface AddEntryInput {

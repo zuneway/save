@@ -10,11 +10,16 @@ function App() {
     projects,
     createProject,
     createFolder,
+    updateProjectNote,
+    updateProjectName,
+    updateFolderNote,
+    updateFolderName,
     deleteProjects,
     moveProjectsToFolder,
     reorderFolders,
     toggleTodayComplete,
     completePlannedDay,
+    undoEarlyDeposit,
     addEntry,
     updateRandomDeposit,
     regenerateRandomPlan,
@@ -42,10 +47,13 @@ function App() {
           onCompletePlannedDay={(date, kind) =>
             completePlannedDay(activeProject.id, date, kind)
           }
+          onUndoEarlyDeposit={(date) => undoEarlyDeposit(activeProject.id, date)}
           onAddEntry={(input) => addEntry(activeProject.id, input)}
           onUpdateRandomDeposit={(input) => updateRandomDeposit(activeProject.id, input)}
           onRegenerateRandomPlan={() => regenerateRandomPlan(activeProject.id)}
           onUpdateDetailLayout={(layout) => updateDetailLayout(activeProject.id, layout)}
+          onUpdateNote={(note) => updateProjectNote(activeProject.id, note)}
+          onUpdateName={(name) => updateProjectName(activeProject.id, name)}
         />
       ) : (
         <HomeScreen
@@ -56,6 +64,10 @@ function App() {
           onDeleteProjects={deleteProjects}
           onMoveProjectsToFolder={moveProjectsToFolder}
           onReorderFolders={reorderFolders}
+          onUpdateProjectNote={updateProjectNote}
+          onUpdateProjectName={updateProjectName}
+          onUpdateFolderNote={updateFolderNote}
+          onUpdateFolderName={updateFolderName}
           onOpenProject={setActiveProjectId}
         />
       )}
