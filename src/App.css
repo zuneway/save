@@ -547,9 +547,13 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 100;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: max(20px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(4px);
 }
@@ -1356,6 +1360,15 @@
   border-bottom: none;
 }
 
+body.wish-pool-open .floating-dock,
+body.wish-pool-open .page-header {
+  visibility: hidden;
+}
+
+.wish-pool-backdrop {
+  z-index: 1000;
+}
+
 .wish-pool-dock {
   position: fixed;
   right: max(16px, env(safe-area-inset-right, 0px));
@@ -1382,9 +1395,16 @@
 }
 
 .wish-pool-modal {
+  position: relative;
+  z-index: 1;
   width: min(480px, calc(100vw - 32px));
   max-height: min(82vh, 720px);
   overflow: auto;
+}
+
+.wish-pool-dock.is-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .wish-pool-intro {
@@ -1398,10 +1418,6 @@
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
-}
-
-.wish-pool-status.is-ok {
-  color: #0f766e;
 }
 
 .wish-pool-status.is-error {
@@ -1453,6 +1469,17 @@
   .wish-pool-dock {
     right: 12px;
     bottom: 12px;
+  }
+
+  .wish-pool-backdrop {
+    align-items: start;
+    padding-top: max(28px, env(safe-area-inset-top, 0px));
+    overflow: auto;
+  }
+
+  .wish-pool-modal {
+    margin-top: 0;
+    max-height: none;
   }
 
   .page-header {

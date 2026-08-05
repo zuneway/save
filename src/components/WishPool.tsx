@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface WishItem {
   id: string
@@ -82,7 +83,6 @@ export function WishPool() {
   const [wishes, setWishes] = useState<WishItem[]>(() => loadWishes())
   const [sending, setSending] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const [statusTone, setStatusTone] = useState<'ok' | 'error'>('ok')
 
   useEffect(() => {
     saveWishes(wishes)
@@ -90,11 +90,21 @@ export function WishPool() {
 
   useEffect(() => {
     if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.classList.add('wish-pool-open')
+    document.body.style.overflow = 'hidden'
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.classList.remove('wish-pool-open')
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [open])
 
   const sorted = useMemo(
@@ -124,10 +134,7 @@ export function WishPool() {
       }
       setWishes((prev) => [wish, ...prev])
       setDraft('')
-      setStatusTone('ok')
-      setStatusMessage('已寄出！請到 Gmail 查看（首次使用請先到信箱點選 FormSubmit 確認信）。')
     } catch (error) {
-      setStatusTone('error')
       setStatusMessage(
         error instanceof Error && error.message === '尚未設定通知信箱'
           ? '尚未設定通知 Gmail，請先告訴開發者你的信箱。'
@@ -142,9 +149,95 @@ export function WishPool() {
     setWishes((prev) => prev.filter((wish) => wish.id !== id))
   }
 
+  const modal =
+    open &&
+    createPortal(
+      <div className="modal-backdrop wish-pool-backdrop" onClick={() => setOpen(false)}>
+        <div
+          className="modal wish-pool-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="modal-header">
+            <h2 id={titleId}>許願池</h2>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setOpen(false)}
+              aria-label="關閉"
+            >
+              ×
+            </button>
+          </header>
+
+          <p className="wish-pool-intro">
+            留下你想增加或修正的功能。送出後會寄信到作者 Gmail，方便盡快安排修正。
+          </p>
+
+          <form className="modal-form" onSubmit={submitWish}>
+            <label className="field">
+              <span>許願內容</span>
+              <textarea
+                rows={4}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="例如：希望可以匯出存錢紀錄…"
+                required
+                disabled={sending}
+              />
+            </label>
+            {statusMessage ? (
+              <p className="wish-pool-status is-error">{statusMessage}</p>
+            ) : null}
+            <div className="modal-actions">
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={!draft.trim() || sending || !NOTIFY_EMAIL}
+              >
+                {sending ? '寄送中…' : '送出許願'}
+              </button>
+            </div>
+            {!NOTIFY_EMAIL ? (
+              <p className="field-hint warning-text">通知信箱尚未設定，暫時無法寄送。</p>
+            ) : null}
+          </form>
+
+          <div className="wish-pool-list-wrap">
+            <p className="island-menu-caption">我的許願紀錄</p>
+            {sorted.length === 0 ? (
+              <p className="folder-empty">還沒有許願，寫下一句吧。</p>
+            ) : (
+              <ul className="wish-pool-list">
+                {sorted.map((wish) => (
+                  <li key={wish.id} className="wish-pool-item">
+                    <div>
+                      <p>{wish.content}</p>
+                      <small>{formatWishTime(wish.createdAt)}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="刪除這則許願"
+                      onClick={() => removeWish(wish.id)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+
   return (
     <>
-      <div className="wish-pool-dock">
+      <div className={`wish-pool-dock ${open ? 'is-hidden' : ''}`}>
         <button
           type="button"
           className="wish-pool-button"
@@ -157,92 +250,7 @@ export function WishPool() {
           願
         </button>
       </div>
-
-      {open && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
-          <div
-            className="modal wish-pool-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="modal-header">
-              <h2 id={titleId}>許願池</h2>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={() => setOpen(false)}
-                aria-label="關閉"
-              >
-                ×
-              </button>
-            </header>
-
-            <p className="wish-pool-intro">
-              留下你想增加或修正的功能。送出後會寄信到作者 Gmail，方便盡快安排修正。
-            </p>
-
-            <form className="modal-form" onSubmit={submitWish}>
-              <label className="field">
-                <span>許願內容</span>
-                <textarea
-                  rows={4}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  placeholder="例如：希望可以匯出存錢紀錄…"
-                  required
-                  disabled={sending}
-                />
-              </label>
-              {statusMessage ? (
-                <p className={`wish-pool-status is-${statusTone}`}>{statusMessage}</p>
-              ) : null}
-              <div className="modal-actions">
-                <button
-                  type="submit"
-                  className="button button-primary"
-                  disabled={!draft.trim() || sending || !NOTIFY_EMAIL}
-                >
-                  {sending ? '寄送中…' : '送出許願'}
-                </button>
-              </div>
-              {!NOTIFY_EMAIL ? (
-                <p className="field-hint warning-text">通知信箱尚未設定，暫時無法寄送。</p>
-              ) : null}
-            </form>
-
-            <div className="wish-pool-list-wrap">
-              <p className="island-menu-caption">我的許願紀錄</p>
-              {sorted.length === 0 ? (
-                <p className="folder-empty">還沒有許願，寫下一句吧。</p>
-              ) : (
-                <ul className="wish-pool-list">
-                  {sorted.map((wish) => (
-                    <li key={wish.id} className="wish-pool-item">
-                      <div>
-                        <p>{wish.content}</p>
-                        <small>
-                          {formatWishTime(wish.createdAt)}
-                          {wish.sent ? ' · 已寄出' : ''}
-                        </small>
-                      </div>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label="刪除這則許願"
-                        onClick={() => removeWish(wish.id)}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {modal}
     </>
   )
 }
