@@ -17,17 +17,28 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+  touch-action: manipulation;
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }

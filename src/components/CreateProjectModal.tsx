@@ -1,17 +1,26 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { CreateProjectInput, ProjectDeadline, ProjectFolder } from '../types/savings'
+import { getTodayDateInputValue, isValidDeadline } from '../utils/deadline'
+import { parseAmount } from '../utils/money'
 
 interface CreateProjectModalProps {
   open: boolean
+  folders: ProjectFolder[]
   onClose: () => void
-  onSubmit: (name: string, targetAmount: number) => void
+  onSubmit: (input: CreateProjectInput) => void
 }
 
-export function CreateProjectModal({ open, onClose, onSubmit }: CreateProjectModalProps) {
+type DeadlineMode = ProjectDeadline['type']
+
+export function CreateProjectModal({ open, folders, onClose, onSubmit }: CreateProjectModalProps) {
   const titleId = useId()
   const nameRef = useRef<HTMLInputElement>(null)
+  const [deadlineMode, setDeadlineMode] = useState<DeadlineMode>('days')
+  const minDate = getTodayDateInputValue()
 
   useEffect(() => {
     if (open) {
+      setDeadlineMode('days')
       nameRef.current?.focus()
     }
   }, [open])
@@ -22,12 +31,27 @@ export function CreateProjectModal({ open, onClose, onSubmit }: CreateProjectMod
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const name = String(formData.get('name') ?? '').trim()
-    const targetAmount = Number(formData.get('targetAmount'))
+    const targetAmount = parseAmount(formData.get('targetAmount'))
 
-    if (!name || Number.isNaN(targetAmount) || targetAmount <= 0) return
+    let deadline: ProjectDeadline
+    if (deadlineMode === 'days') {
+      const days = parseAmount(formData.get('targetDays'))
+      if (days == null) return
+      deadline = { type: 'days', days }
+    } else {
+      deadline = { type: 'date', date: String(formData.get('targetDate') ?? '') }
+    }
 
-    onSubmit(name, targetAmount)
+    const folderValue = String(formData.get('folderId') ?? '')
+    const folderId = folderValue === '' ? null : folderValue
+
+    if (!name || targetAmount == null || !isValidDeadline(deadline)) {
+      return
+    }
+
+    onSubmit({ name, targetAmount, deadline, folderId })
     event.currentTarget.reset()
+    setDeadlineMode('days')
     onClose()
   }
 
@@ -65,13 +89,74 @@ export function CreateProjectModal({ open, onClose, onSubmit }: CreateProjectMod
             <span>目標金額（NT$）</span>
             <input
               name="targetAmount"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="50000"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              placeholder="例如：1000"
+              autoComplete="off"
               required
             />
+            <p className="field-hint">請輸入整數金額，例如 1000。</p>
           </label>
+
+          {folders.length > 0 && (
+            <label className="field">
+              <span>放入資料夾（選填）</span>
+              <select name="folderId" defaultValue="">
+                <option value="">不放入資料夾</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <fieldset className="field deadline-field">
+            <legend>目標期限</legend>
+            <div className="deadline-toggle" role="radiogroup" aria-label="目標期限類型">
+              <button
+                type="button"
+                className={`deadline-option ${deadlineMode === 'days' ? 'is-active' : ''}`}
+                onClick={() => setDeadlineMode('days')}
+                aria-pressed={deadlineMode === 'days'}
+              >
+                目標天數
+              </button>
+              <button
+                type="button"
+                className={`deadline-option ${deadlineMode === 'date' ? 'is-active' : ''}`}
+                onClick={() => setDeadlineMode('date')}
+                aria-pressed={deadlineMode === 'date'}
+              >
+                目標日期
+              </button>
+            </div>
+
+            {deadlineMode === 'days' ? (
+              <label className="field nested-field">
+                <span>要在幾天內達成？</span>
+                <input
+                  name="targetDays"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]+"
+                  placeholder="30"
+                  defaultValue={30}
+                  autoComplete="off"
+                  required
+                />
+                <p className="field-hint">從建立專案當天起算，請輸入整數天數。</p>
+              </label>
+            ) : (
+              <label className="field nested-field">
+                <span>目標完成日期</span>
+                <input name="targetDate" type="date" min={minDate} required />
+                <p className="field-hint">可選今天或未來的日期。</p>
+              </label>
+            )}
+          </fieldset>
 
           <div className="modal-actions">
             <button type="button" className="button button-secondary" onClick={onClose}>

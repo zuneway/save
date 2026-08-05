@@ -1,13 +1,64 @@
+import { useEffect, useState } from 'react'
 import { HomeScreen } from './components/HomeScreen'
+import { ProjectDetailScreen } from './components/ProjectDetailScreen'
 import { useSavingsProjects } from './hooks/useSavingsProjects'
 import './App.css'
 
 function App() {
-  const { projects, createProject } = useSavingsProjects()
+  const {
+    folders,
+    projects,
+    createProject,
+    createFolder,
+    deleteProjects,
+    moveProjectsToFolder,
+    reorderFolders,
+    toggleTodayComplete,
+    completePlannedDay,
+    addEntry,
+    updateRandomDeposit,
+    regenerateRandomPlan,
+    updateDetailLayout,
+  } = useSavingsProjects()
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+
+  const activeProject = activeProjectId
+    ? projects.find((project) => project.id === activeProjectId) ?? null
+    : null
+
+  useEffect(() => {
+    if (activeProjectId && !activeProject) {
+      setActiveProjectId(null)
+    }
+  }, [activeProjectId, activeProject])
 
   return (
     <main className="app-shell">
-      <HomeScreen projects={projects} onCreateProject={createProject} />
+      {activeProject ? (
+        <ProjectDetailScreen
+          project={activeProject}
+          onBack={() => setActiveProjectId(null)}
+          onToggleTodayComplete={() => toggleTodayComplete(activeProject.id)}
+          onCompletePlannedDay={(date, kind) =>
+            completePlannedDay(activeProject.id, date, kind)
+          }
+          onAddEntry={(input) => addEntry(activeProject.id, input)}
+          onUpdateRandomDeposit={(input) => updateRandomDeposit(activeProject.id, input)}
+          onRegenerateRandomPlan={() => regenerateRandomPlan(activeProject.id)}
+          onUpdateDetailLayout={(layout) => updateDetailLayout(activeProject.id, layout)}
+        />
+      ) : (
+        <HomeScreen
+          folders={folders}
+          projects={projects}
+          onCreateProject={createProject}
+          onCreateFolder={createFolder}
+          onDeleteProjects={deleteProjects}
+          onMoveProjectsToFolder={moveProjectsToFolder}
+          onReorderFolders={reorderFolders}
+          onOpenProject={setActiveProjectId}
+        />
+      )}
     </main>
   )
 }
