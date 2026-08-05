@@ -173,7 +173,7 @@ export function WishPool() {
           </header>
 
           <p className="wish-pool-intro">
-            留下你想增加或修正的功能。送出後會寄信到作者 Gmail，方便盡快安排修正。
+            留下你想增加或修正的功能。送出後會經第三方表單服務寄到作者信箱；請勿填寫身分證、銀行帳號、真實姓名等個資，只需描述功能需求即可。
           </p>
 
           <form className="modal-form" onSubmit={submitWish}>

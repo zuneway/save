@@ -17,6 +17,8 @@ import { SelectionMenu } from './SelectionMenu'
 import { WishPool } from './WishPool'
 
 interface HomeScreenProps {
+  username: string
+  isGuest: boolean
   folders: ProjectFolder[]
   projects: SavingsProject[]
   onCreateProject: (input: CreateProjectInput) => void
@@ -29,6 +31,13 @@ interface HomeScreenProps {
   onUpdateFolderNote: (folderId: string, note: string) => void
   onUpdateFolderName: (folderId: string, name: string) => void
   onOpenProject: (projectId: string) => void
+  onLogout: () => void
+  onGoToLogin: () => void
+  onOpenInstallGuide: () => void
+  onOpenPrivacy: () => void
+  onLock?: () => void
+  createProjectOpen: boolean
+  onCreateProjectOpenChange: (open: boolean) => void
 }
 
 const DRAG_MIME = 'application/x-savings-project-ids'
@@ -70,6 +79,8 @@ function readDragIds(event: React.DragEvent) {
 }
 
 export function HomeScreen({
+  username,
+  isGuest,
   folders,
   projects,
   onCreateProject,
@@ -82,8 +93,14 @@ export function HomeScreen({
   onUpdateFolderNote,
   onUpdateFolderName,
   onOpenProject,
+  onLogout,
+  onGoToLogin,
+  onOpenInstallGuide,
+  onOpenPrivacy,
+  onLock,
+  createProjectOpen,
+  onCreateProjectOpenChange,
 }: HomeScreenProps) {
-  const [projectModalOpen, setProjectModalOpen] = useState(false)
   const [folderModalOpen, setFolderModalOpen] = useState(false)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [selectionMenuOpen, setSelectionMenuOpen] = useState(false)
@@ -334,6 +351,10 @@ export function HomeScreen({
       className={`home-screen ${dragging ? 'is-dragging' : ''} ${draggingFolderId ? 'is-reordering-folders' : ''}`}
     >
       <div className="floating-dock floating-dock-left">
+        <div className="account-chip" title={isGuest ? `${username}（訪客模式）` : username}>
+          <span className="account-chip-name">{username}</span>
+          {isGuest ? <span className="guest-badge">訪客</span> : null}
+        </div>
         <div className={`island-wrap ${hasSelection ? 'is-visible' : 'is-hidden'}`}>
           <button
             type="button"
@@ -409,7 +430,7 @@ export function HomeScreen({
             open={createMenuOpen}
             onClose={() => setCreateMenuOpen(false)}
             onCreateFolder={() => setFolderModalOpen(true)}
-            onCreateProject={() => setProjectModalOpen(true)}
+            onCreateProject={() => onCreateProjectOpenChange(true)}
           />
         </div>
       </div>
@@ -421,6 +442,38 @@ export function HomeScreen({
           <p className="eyebrow">Savings Tracker</p>
           <h1>存錢系統</h1>
           <p className="subtitle">{homeQuote}</p>
+        </div>
+        <div className="page-header-actions">
+          <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
+            隱私
+          </button>
+          <button type="button" className="button button-secondary button-compact" onClick={onOpenInstallGuide}>
+            安裝教學
+          </button>
+          {!isGuest && onLock ? (
+            <button type="button" className="button button-secondary button-compact" onClick={onLock}>
+              鎖定
+            </button>
+          ) : null}
+          {isGuest ? (
+            <button
+              type="button"
+              className="button button-primary button-compact"
+              onClick={onGoToLogin}
+            >
+              登入
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button-secondary button-compact"
+              onClick={() => {
+                if (window.confirm('確定要登出嗎？')) onLogout()
+              }}
+            >
+              登出
+            </button>
+          )}
         </div>
       </header>
 
@@ -663,9 +716,9 @@ export function HomeScreen({
       </section>
 
       <CreateProjectModal
-        open={projectModalOpen}
+        open={createProjectOpen}
         folders={folders}
-        onClose={() => setProjectModalOpen(false)}
+        onClose={() => onCreateProjectOpenChange(false)}
         onSubmit={onCreateProject}
       />
       <CreateFolderModal

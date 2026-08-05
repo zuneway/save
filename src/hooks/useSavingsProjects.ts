@@ -22,6 +22,12 @@ import {
   regenerateFuturePlans,
 } from '../utils/deadline'
 import { insertByName, sortByName } from '../utils/sortByName'
+import {
+  decryptJson,
+  encryptJson,
+  isEncryptedBlob,
+  tryParseJsonObject,
+} from '../utils/dataCrypto'
 
 const AUTO_COMPLETE_NOTE = '標記今日完成'
 const RANDOM_DEPOSIT_NOTE = '系統隨機分配'
@@ -39,7 +45,11 @@ function isEarlyDepositEntry(entry: SavingsEntry, date: string) {
   return entry.date === date && entry.note === EARLY_DEPOSIT_NOTE
 }
 
-const STORAGE_KEY = 'savings-system:data'
+const LEGACY_STORAGE_KEY = 'savings-system:data'
+
+function storageKey(userId: string) {
+  return `savings-system:data:${userId}`
+}
 
 interface SavingsData {
   folders: ProjectFolder[]
@@ -198,19 +208,60 @@ function normalizeFolder(raw: unknown): ProjectFolder | null {
   }
 }
 
-function loadData(): SavingsData {
+function parseSavingsData(raw: string | null): SavingsData {
+  if (!raw) return { folders: [], projects: [] }
   try {
-    const nextGen = localStorage.getItem(STORAGE_KEY)
-    if (nextGen) {
-      const parsed = JSON.parse(nextGen) as Partial<SavingsData>
-      return {
-        folders: Array.isArray(parsed.folders)
-          ? parsed.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
-          : [],
-        projects: Array.isArray(parsed.projects)
-          ? parsed.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
-          : [],
+    const parsed = JSON.parse(raw) as Partial<SavingsData>
+    return {
+      folders: Array.isArray(parsed.folders)
+        ? parsed.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
+        : [],
+      projects: Array.isArray(parsed.projects)
+        ? parsed.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
+        : [],
+    }
+  } catch {
+    return { folders: [], projects: [] }
+  }
+}
+
+function parsePlainSavingsRaw(raw: string): SavingsData | null {
+  const object = tryParseJsonObject(raw)
+  if (!object) return null
+  if (isEncryptedBlob(object)) return null
+  return parseSavingsData(raw)
+}
+
+async function loadData(
+  userId: string,
+  options: { encrypt: boolean; dataKey: CryptoKey | null },
+): Promise<SavingsData> {
+  try {
+    const keyed = localStorage.getItem(storageKey(userId))
+    if (keyed) {
+      const object = tryParseJsonObject(keyed)
+      if (object && isEncryptedBlob(object)) {
+        if (!options.dataKey) throw new Error('需要密碼才能讀取加密資料')
+        const decrypted = await decryptJson<Partial<SavingsData>>(options.dataKey, keyed)
+        return {
+          folders: Array.isArray(decrypted.folders)
+            ? decrypted.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
+            : [],
+          projects: Array.isArray(decrypted.projects)
+            ? decrypted.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
+            : [],
+        }
       }
+
+      const plain = parsePlainSavingsRaw(keyed)
+      if (plain) return plain
+    }
+
+    // Backward compatible: old anonymous data / projects list.
+    const nextGen = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (nextGen) {
+      const plain = parsePlainSavingsRaw(nextGen)
+      if (plain) return plain
     }
 
     const legacy = localStorage.getItem('savings-system:projects')
@@ -222,13 +273,27 @@ function loadData(): SavingsData {
       : []
 
     return { folders: [], projects }
-  } catch {
+  } catch (error) {
+    if (options.encrypt) throw error
     return { folders: [], projects: [] }
   }
 }
 
-function saveData(data: SavingsData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+async function saveData(
+  userId: string,
+  data: SavingsData,
+  options: { encrypt: boolean; dataKey: CryptoKey | null },
+) {
+  if (options.encrypt) {
+    if (!options.dataKey) return
+    const payload = await encryptJson(options.dataKey, data)
+    localStorage.setItem(storageKey(userId), payload)
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+    localStorage.removeItem('savings-system:projects')
+    return
+  }
+
+  localStorage.setItem(storageKey(userId), JSON.stringify(data))
 }
 
 function updateProject(
@@ -244,12 +309,46 @@ function updateProject(
   }
 }
 
-export function useSavingsProjects() {
-  const [data, setData] = useState<SavingsData>(() => loadData())
+export function useSavingsProjects(
+  userId: string,
+  options: { encrypt: boolean; dataKey: CryptoKey | null },
+) {
+  const encrypt = options.encrypt
+  const dataKey = options.dataKey
+  const [data, setData] = useState<SavingsData>({ folders: [], projects: [] })
+  const [storageReady, setStorageReady] = useState(false)
+  const [storageError, setStorageError] = useState<string | null>(null)
 
   useEffect(() => {
-    saveData(data)
-  }, [data])
+    let cancelled = false
+    setStorageReady(false)
+    setStorageError(null)
+
+    void (async () => {
+      try {
+        const loaded = await loadData(userId, { encrypt, dataKey })
+        if (cancelled) return
+        setData(loaded)
+        setStorageReady(true)
+      } catch (error) {
+        if (cancelled) return
+        setData({ folders: [], projects: [] })
+        setStorageError(error instanceof Error ? error.message : '無法讀取加密資料')
+        setStorageReady(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, encrypt, dataKey])
+
+  useEffect(() => {
+    if (!storageReady) return
+    if (encrypt && !dataKey) return
+
+    void saveData(userId, data, { encrypt, dataKey })
+  }, [userId, data, encrypt, dataKey, storageReady])
 
   const createProject = useCallback((input: CreateProjectInput) => {
     const note = input.note?.trim() || undefined
@@ -632,6 +731,8 @@ export function useSavingsProjects() {
   }, [])
 
   return {
+    storageReady,
+    storageError,
     folders: data.folders,
     projects: sortByName(data.projects),
     createProject,
