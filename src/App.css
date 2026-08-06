@@ -7,6 +7,46 @@
   padding-right: max(20px, env(safe-area-inset-right, 0px));
 }
 
+.version-badge {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  z-index: 70;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.update-prompt-backdrop {
+  z-index: 1200;
+}
+
+.update-prompt-modal {
+  width: min(100%, 400px);
+}
+
+.update-prompt-text {
+  margin: 0 0 20px;
+  color: #334155;
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.update-prompt-actions {
+  justify-content: stretch;
+}
+
+.update-prompt-actions .button {
+  width: 100%;
+}
+
 .home-screen {
   display: flex;
   flex-direction: column;

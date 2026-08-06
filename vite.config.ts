@@ -1,6 +1,20 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { APP_VERSION } from './src/config/appVersion'
+
+function emitVersionJson(): Plugin {
+  return {
+    name: 'emit-version-json',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: `${JSON.stringify({ version: APP_VERSION }, null, 2)}\n`,
+      })
+    },
+  }
+}
 
 export default defineConfig(({ mode }) => {
   const isGitHubPages = mode === 'pages'
@@ -10,9 +24,10 @@ export default defineConfig(({ mode }) => {
     base: isGitHubPages ? '/save/' : '/',
     plugins: [
       react(),
+      emitVersionJson(),
       VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['apple-touch-icon.png', 'vite.svg'],
+        registerType: 'prompt',
+        includeAssets: ['apple-touch-icon.png', 'vite.svg', 'version.json'],
         manifest: {
           name: '存錢系統',
           short_name: '存錢系統',
@@ -45,6 +60,17 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          // Always hit network for version checks so clients learn about updates while open.
+          navigateFallbackDenylist: [/^\/version\.json$/],
+          runtimeCaching: [
+            {
+              urlPattern: /\/version\.json(?:\?.*)?$/i,
+              handler: 'NetworkOnly',
+              options: {
+                cacheName: 'app-version',
+              },
+            },
+          ],
         },
         devOptions: {
           enabled: false,

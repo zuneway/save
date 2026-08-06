@@ -10,6 +10,7 @@ import {
   hasSeenUsageGuide,
   markUsageGuideSeen,
 } from './components/UsageGuide'
+import { UpdatePrompt, VersionBadge } from './components/UpdatePrompt'
 import { useAuth } from './hooks/useAuth'
 import { useSavingsProjects } from './hooks/useSavingsProjects'
 import './App.css'
@@ -187,6 +188,8 @@ function App() {
     return (
       <main className="app-shell">
         <p className="auth-loading">載入中…</p>
+        <VersionBadge />
+        <UpdatePrompt />
       </main>
     )
   }
@@ -232,6 +235,8 @@ function App() {
         onWipeCurrentData={wipeCurrentUserData}
         onWipeAllLocalData={wipeAllLocalData}
       />
+      <VersionBadge />
+      <UpdatePrompt />
     </main>
   )
 }
