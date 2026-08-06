@@ -23,6 +23,7 @@ function AuthenticatedApp({
   onGoToLogin,
   onLock,
   onOpenPrivacy,
+  onSyncStateChange,
 }: {
   userId: string
   username: string
@@ -32,10 +33,12 @@ function AuthenticatedApp({
   onGoToLogin: () => void
   onLock?: () => void
   onOpenPrivacy: () => void
+  onSyncStateChange?: (state: 'idle' | 'syncing' | 'synced' | 'offline') => void
 }) {
   const {
     storageReady,
     storageError,
+    syncState,
     folders,
     projects,
     createProject,
@@ -66,6 +69,10 @@ function AuthenticatedApp({
   const activeProject = activeProjectId
     ? projects.find((project) => project.id === activeProjectId) ?? null
     : null
+
+  useEffect(() => {
+    onSyncStateChange?.(syncState)
+  }, [syncState, onSyncStateChange])
 
   useEffect(() => {
     if (activeProjectId && !activeProject) {
@@ -174,6 +181,7 @@ function App() {
   } = useAuth()
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'offline'>('idle')
 
   if (!ready) {
     return (
@@ -198,6 +206,7 @@ function App() {
           onGoToLogin={logout}
           onLock={currentUser.isGuest ? undefined : lock}
           onOpenPrivacy={() => setPrivacyOpen(true)}
+          onSyncStateChange={setSyncState}
         />
       ) : (
         <>
@@ -217,6 +226,7 @@ function App() {
         signedIn={Boolean(currentUser)}
         isGuest={Boolean(currentUser?.isGuest)}
         username={currentUser?.username ?? '尚未登入'}
+        syncState={syncState}
         onClose={() => setPrivacyOpen(false)}
         onLock={currentUser && !currentUser.isGuest ? lock : undefined}
         onWipeCurrentData={wipeCurrentUserData}

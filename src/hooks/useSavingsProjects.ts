@@ -28,11 +28,15 @@ import {
   isEncryptedBlob,
   tryParseJsonObject,
 } from '../utils/dataCrypto'
+import { isFirebaseConfigured } from '../lib/firebase'
+import { loadCloudMeta } from '../utils/cloudMeta'
+import { fetchCloudUserDoc, saveCloudUserDoc } from '../utils/cloudSync'
 
 const AUTO_COMPLETE_NOTE = '標記今日完成'
 const RANDOM_DEPOSIT_NOTE = '系統隨機分配'
 const EARLY_DEPOSIT_NOTE = '提早存入'
 const MAKEUP_DEPOSIT_NOTE = '補存入'
+const CLOUD_PUSH_DEBOUNCE_MS = 800
 
 function isAutoTodayEntry(entry: SavingsEntry, today: string) {
   return (
@@ -54,6 +58,19 @@ function storageKey(userId: string) {
 interface SavingsData {
   folders: ProjectFolder[]
   projects: SavingsProject[]
+  updatedAt?: number
+}
+
+function withUpdatedAt(data: SavingsData): SavingsData {
+  return {
+    folders: data.folders,
+    projects: data.projects,
+    updatedAt: Date.now(),
+  }
+}
+
+function readUpdatedAt(data: SavingsData): number {
+  return typeof data.updatedAt === 'number' ? data.updatedAt : 0
 }
 
 function isLegacyProject(value: unknown): value is Omit<
@@ -250,7 +267,7 @@ function normalizeFolder(raw: unknown): ProjectFolder | null {
 }
 
 function parseSavingsData(raw: string | null): SavingsData {
-  if (!raw) return { folders: [], projects: [] }
+  if (!raw) return { folders: [], projects: [], updatedAt: 0 }
   try {
     const parsed = JSON.parse(raw) as Partial<SavingsData>
     return {
@@ -260,9 +277,10 @@ function parseSavingsData(raw: string | null): SavingsData {
       projects: Array.isArray(parsed.projects)
         ? parsed.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
         : [],
+      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0,
     }
   } catch {
-    return { folders: [], projects: [] }
+    return { folders: [], projects: [], updatedAt: 0 }
   }
 }
 
@@ -291,6 +309,7 @@ async function loadData(
           projects: Array.isArray(decrypted.projects)
             ? decrypted.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
             : [],
+          updatedAt: typeof decrypted.updatedAt === 'number' ? decrypted.updatedAt : 0,
         }
       }
 
@@ -306,35 +325,116 @@ async function loadData(
     }
 
     const legacy = localStorage.getItem('savings-system:projects')
-    if (!legacy) return { folders: [], projects: [] }
+    if (!legacy) return { folders: [], projects: [], updatedAt: 0 }
 
     const parsed = JSON.parse(legacy) as unknown[]
     const projects = Array.isArray(parsed)
       ? parsed.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
       : []
 
-    return { folders: [], projects }
+    return { folders: [], projects, updatedAt: 0 }
   } catch (error) {
     if (options.encrypt) throw error
-    return { folders: [], projects: [] }
+    return { folders: [], projects: [], updatedAt: 0 }
   }
+}
+
+async function decodePayload(
+  payload: string,
+  options: { encrypt: boolean; dataKey: CryptoKey | null },
+): Promise<SavingsData | null> {
+  const object = tryParseJsonObject(payload)
+  if (object && isEncryptedBlob(object)) {
+    if (!options.dataKey) return null
+    try {
+      const decrypted = await decryptJson<Partial<SavingsData>>(options.dataKey, payload)
+      return {
+        folders: Array.isArray(decrypted.folders)
+          ? decrypted.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
+          : [],
+        projects: Array.isArray(decrypted.projects)
+          ? decrypted.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
+          : [],
+        updatedAt: typeof decrypted.updatedAt === 'number' ? decrypted.updatedAt : 0,
+      }
+    } catch {
+      return null
+    }
+  }
+  return parsePlainSavingsRaw(payload)
 }
 
 async function saveData(
   userId: string,
   data: SavingsData,
   options: { encrypt: boolean; dataKey: CryptoKey | null },
-) {
+): Promise<string | null> {
+  const stamped = {
+    folders: data.folders,
+    projects: data.projects,
+    updatedAt: readUpdatedAt(data) || Date.now(),
+  }
+
   if (options.encrypt) {
-    if (!options.dataKey) return
-    const payload = await encryptJson(options.dataKey, data)
+    if (!options.dataKey) return null
+    const payload = await encryptJson(options.dataKey, stamped)
     localStorage.setItem(storageKey(userId), payload)
     localStorage.removeItem(LEGACY_STORAGE_KEY)
     localStorage.removeItem('savings-system:projects')
-    return
+    return payload
   }
 
-  localStorage.setItem(storageKey(userId), JSON.stringify(data))
+  const payload = JSON.stringify(stamped)
+  localStorage.setItem(storageKey(userId), payload)
+  return payload
+}
+
+async function pushPayloadToCloud(userId: string, payload: string, updatedAt: number) {
+  if (!isFirebaseConfigured()) return
+  const meta = loadCloudMeta(userId)
+  if (!meta) return
+  await saveCloudUserDoc(userId, {
+    username: meta.username,
+    dataSalt: meta.dataSalt,
+    dataKeyIterations: meta.dataKeyIterations,
+    payload,
+    updatedAt,
+    createdAt: meta.createdAt,
+  })
+}
+
+async function pullAndMergeCloud(
+  userId: string,
+  local: SavingsData,
+  options: { encrypt: boolean; dataKey: CryptoKey | null },
+): Promise<SavingsData> {
+  if (!isFirebaseConfigured() || !options.encrypt) return local
+
+  try {
+    const cloud = await fetchCloudUserDoc(userId)
+    if (!cloud?.payload) return local
+
+    const remote = await decodePayload(cloud.payload, options)
+    if (!remote) return local
+
+    const localTs = readUpdatedAt(local)
+    const remoteTs = Math.max(readUpdatedAt(remote), cloud.updatedAt || 0)
+
+    if (remoteTs > localTs) {
+      localStorage.setItem(storageKey(userId), cloud.payload)
+      return { ...remote, updatedAt: remoteTs }
+    }
+
+    if (localTs > remoteTs) {
+      const payload = await saveData(userId, local, options)
+      if (payload) await pushPayloadToCloud(userId, payload, localTs)
+    }
+
+    return local
+  } catch {
+    // Offline / permission: keep local.
+    return local
+  }
 }
 
 function updateProject(
@@ -356,9 +456,10 @@ export function useSavingsProjects(
 ) {
   const encrypt = options.encrypt
   const dataKey = options.dataKey
-  const [data, setData] = useState<SavingsData>({ folders: [], projects: [] })
+  const [data, setData] = useState<SavingsData>({ folders: [], projects: [], updatedAt: 0 })
   const [storageReady, setStorageReady] = useState(false)
   const [storageError, setStorageError] = useState<string | null>(null)
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'offline'>('idle')
 
   useEffect(() => {
     let cancelled = false
@@ -369,11 +470,14 @@ export function useSavingsProjects(
       try {
         const loaded = await loadData(userId, { encrypt, dataKey })
         if (cancelled) return
-        setData(loaded)
+        const merged = await pullAndMergeCloud(userId, loaded, { encrypt, dataKey })
+        if (cancelled) return
+        setData(merged)
         setStorageReady(true)
+        setSyncState(encrypt && isFirebaseConfigured() ? 'synced' : 'idle')
       } catch (error) {
         if (cancelled) return
-        setData({ folders: [], projects: [] })
+        setData({ folders: [], projects: [], updatedAt: 0 })
         setStorageError(error instanceof Error ? error.message : '無法讀取加密資料')
         setStorageReady(false)
       }
@@ -388,8 +492,31 @@ export function useSavingsProjects(
     if (!storageReady) return
     if (encrypt && !dataKey) return
 
-    void saveData(userId, data, { encrypt, dataKey })
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const payload = await saveData(userId, data, { encrypt, dataKey })
+        if (cancelled || !payload || !encrypt || !isFirebaseConfigured()) return
+
+        setSyncState('syncing')
+        try {
+          await pushPayloadToCloud(userId, payload, readUpdatedAt(data) || Date.now())
+          if (!cancelled) setSyncState('synced')
+        } catch {
+          if (!cancelled) setSyncState('offline')
+        }
+      })()
+    }, encrypt && isFirebaseConfigured() ? CLOUD_PUSH_DEBOUNCE_MS : 0)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
   }, [userId, data, encrypt, dataKey, storageReady])
+
+  const setDataStamped = useCallback((updater: (prev: SavingsData) => SavingsData) => {
+    setData((prev) => withUpdatedAt(updater(prev)))
+  }, [])
 
   const createProject = useCallback((input: CreateProjectInput) => {
     const note = input.note?.trim() || undefined
@@ -423,7 +550,7 @@ export function useSavingsProjects(
       plannedDeposits: [],
       detailLayout: [...DEFAULT_DETAIL_LAYOUT],
     }
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       projects: sortByName([project, ...prev.projects]),
     }))
@@ -438,7 +565,7 @@ export function useSavingsProjects(
       note,
       createdAt: new Date().toISOString(),
     }
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       folders: insertByName(prev.folders, folder),
     }))
@@ -447,7 +574,7 @@ export function useSavingsProjects(
 
   const updateProjectNote = useCallback((projectId: string, note: string) => {
     const nextNote = note.trim() || undefined
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => ({
         ...project,
         note: nextNote,
@@ -458,7 +585,7 @@ export function useSavingsProjects(
   const updateProjectName = useCallback((projectId: string, name: string) => {
     const nextName = name.trim()
     if (!nextName) return
-    setData((prev) => {
+    setDataStamped((prev) => {
       const updated = updateProject(prev, projectId, (project) => ({
         ...project,
         name: nextName,
@@ -472,7 +599,7 @@ export function useSavingsProjects(
 
   const updateFolderNote = useCallback((folderId: string, note: string) => {
     const nextNote = note.trim() || undefined
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       folders: prev.folders.map((folder) =>
         folder.id === folderId ? { ...folder, note: nextNote } : folder,
@@ -483,7 +610,7 @@ export function useSavingsProjects(
   const updateFolderName = useCallback((folderId: string, name: string) => {
     const nextName = name.trim()
     if (!nextName) return
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       folders: prev.folders.map((folder) =>
         folder.id === folderId ? { ...folder, name: nextName } : folder,
@@ -494,7 +621,7 @@ export function useSavingsProjects(
   const deleteProjects = useCallback((ids: string[]) => {
     if (ids.length === 0) return
     const idSet = new Set(ids)
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       projects: prev.projects.filter((project) => !idSet.has(project.id)),
     }))
@@ -503,7 +630,7 @@ export function useSavingsProjects(
   const deleteFolders = useCallback((ids: string[]) => {
     if (ids.length === 0) return
     const idSet = new Set(ids)
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       folders: prev.folders.filter((folder) => !idSet.has(folder.id)),
       projects: prev.projects.map((project) =>
         project.folderId && idSet.has(project.folderId)
@@ -516,7 +643,7 @@ export function useSavingsProjects(
   const moveProjectsToFolder = useCallback((ids: string[], folderId: string | null) => {
     if (ids.length === 0) return
     const idSet = new Set(ids)
-    setData((prev) => ({
+    setDataStamped((prev) => ({
       ...prev,
       projects: prev.projects.map((project) =>
         idSet.has(project.id) ? { ...project, folderId } : project,
@@ -526,7 +653,7 @@ export function useSavingsProjects(
 
   const reorderFolders = useCallback((sourceId: string, targetId: string) => {
     if (sourceId === targetId) return
-    setData((prev) => {
+    setDataStamped((prev) => {
       const from = prev.folders.findIndex((folder) => folder.id === sourceId)
       const to = prev.folders.findIndex((folder) => folder.id === targetId)
       if (from < 0 || to < 0) return prev
@@ -539,7 +666,7 @@ export function useSavingsProjects(
 
   const toggleTodayComplete = useCallback((projectId: string) => {
     const today = getTodayDateInputValue()
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => {
         const completed = (project.completedDates ?? []).includes(today)
         let nextProject: SavingsProject
@@ -608,7 +735,7 @@ export function useSavingsProjects(
       if (kind === 'early' && date <= today) return
       if (kind === 'makeup' && date >= today) return
 
-      setData((prev) =>
+      setDataStamped((prev) =>
         updateProject(prev, projectId, (project) => {
           if ((project.completedDates ?? []).includes(date)) return project
           if (!getProjectDateKeys(project).includes(date)) return project
@@ -662,7 +789,7 @@ export function useSavingsProjects(
     const today = getTodayDateInputValue()
     if (date <= today) return
 
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => {
         if (!(project.completedDates ?? []).includes(date)) return project
         if (!getProjectDateKeys(project).includes(date)) return project
@@ -704,7 +831,7 @@ export function useSavingsProjects(
       createdAt: new Date().toISOString(),
     }
 
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => {
         const completedDates = project.completedDates.includes(date)
           ? project.completedDates
@@ -739,7 +866,7 @@ export function useSavingsProjects(
         maxAmount,
       }
 
-      setData((prev) =>
+      setDataStamped((prev) =>
         updateProject(prev, projectId, (project) => {
           const shouldRegenerate =
             input.regeneratePlan ||
@@ -769,7 +896,7 @@ export function useSavingsProjects(
   )
 
   const regenerateRandomPlan = useCallback((projectId: string) => {
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => ({
         ...project,
         plannedDeposits: regenerateFuturePlans(project, project.randomDeposit),
@@ -778,7 +905,7 @@ export function useSavingsProjects(
   }, [])
 
   const updateDetailLayout = useCallback((projectId: string, layout: DetailPanelId[]) => {
-    setData((prev) =>
+    setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => ({
         ...project,
         detailLayout: normalizeDetailLayout(layout),
@@ -789,6 +916,7 @@ export function useSavingsProjects(
   return {
     storageReady,
     storageError,
+    syncState,
     folders: data.folders,
     projects: sortByName(data.projects),
     createProject,

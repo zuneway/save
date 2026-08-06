@@ -52,7 +52,7 @@ export function AuthScreen({
       <header className="auth-hero">
         <p className="eyebrow">Savings Tracker</p>
         <h1>存錢系統</h1>
-        <p className="subtitle">登入帳號儲存資料，或先以訪客試用</p>
+        <p className="subtitle">登入帳號後自動雲端同步，或先以訪客試用</p>
       </header>
 
       <section className="auth-card">
