@@ -531,7 +531,35 @@
 }
 
 .usage-guide-modal {
+  display: flex;
+  flex-direction: column;
   max-width: 520px;
+  max-height: min(90dvh, 720px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.usage-guide-modal .modal-header {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 20px 20px 12px;
+}
+
+.usage-guide-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 20px 8px;
+}
+
+.usage-guide-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+  margin-top: 0;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e2e8f0;
 }
 
 .usage-guide-progress {
@@ -588,11 +616,6 @@
 .usage-guide-extra {
   width: 100%;
   margin-bottom: 12px;
-}
-
-.usage-guide-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .usage-guide-actions .button {
@@ -1079,6 +1102,33 @@
 
 .today-save-tip.is-pending em {
   color: #c2410c;
+}
+
+.random-tip-backdrop {
+  z-index: 90;
+}
+
+.random-tip-modal {
+  max-width: 420px;
+}
+
+.random-tip-lead {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.random-tip-list {
+  margin: 0 0 18px;
+  padding-left: 1.2rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.random-tip-list li + li {
+  margin-top: 8px;
 }
 
 .plan-badge {

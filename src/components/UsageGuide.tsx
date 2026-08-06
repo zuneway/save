@@ -21,29 +21,74 @@ const STEPS = [
     ],
   },
   {
-    title: '建立存錢專案',
-    body: '點右上角「＋」建立專案。可選日存、周存、月存，或自訂每幾天存一次。',
-    points: ['日存／周存／月存：固定節奏', '自訂：自己決定間隔天數與次數', '建立後可用快捷鍵一鍵存入'],
+    title: '主畫面怎麼看',
+    body: '主畫面集中顯示所有專案與狀態，方便一眼掌握進度。',
+    points: [
+      '左上角顯示目前帳號（訪客或登入帳號）',
+      '專案卡片綠／紅標示該階段是否完成',
+      '右上「＋」新增專案或資料夾；「功能介紹」可隨時重看',
+      '右下「願」可許願回饋功能建議',
+    ],
   },
   {
-    title: '進入專案開始存',
-    body: '回到首頁後，直接點專案卡片進入。你可以標記今日完成、提早存入，或開啟隨機每日金額。',
-    points: ['點選專案--進入專案詳情頁面--開始存錢', '可手動補存、提早存入', '隨機分配會自動排出每日需存入金額'],
+    title: '建立專案與資料夾',
+    body: '點右上角「＋」開始建立內容。',
+    points: [
+      '建立專案：設定名稱、目標金額與存錢節奏',
+      '可選日存、周存、月存，或自訂每幾天存一次',
+      '建立資料夾：用來分類整理多個專案',
+      '空白時也可直接按「建立存錢專案」開始',
+    ],
   },
   {
-    title: '用資料夾整理',
-    body: '專案變多時，可用「＋」建立資料夾，再把專案拖進資料夾，或用左上角選單搬移。',
-    points: ['長按／拖曳專案到資料夾', '資料夾可收合，畫面更乾淨', '想改名稱或備註可用選單'],
+    title: '進入專案開始存錢',
+    body: '點選專案卡片進入詳情頁，開始記錄存入。',
+    points: [
+      '到「存入金額設定」輸入今日金額，或用快捷鍵',
+      '可啟用隨機分配，系統自動排出每日需存入金額',
+      '存入後可在進度總覽查看今日／本期是否完成',
+      '首次進入專案會有引導提示',
+    ],
   },
   {
-    title: '登入與隱私',
-    body: '訪客可先試用；若要保護資料，右上角按「登入」註冊帳號。正式帳號資料會加密保存。',
-    points: ['訪客資料未加密', '登入後可手動鎖定', '隱私頁可清除本機資料'],
+    title: '專案頁面的區塊',
+    body: '詳情頁由多個功能區塊組成，可依需求顯示。',
+    points: [
+      '存錢進度總覽：金額進度與今日需存入',
+      '存入金額設定：手動存入、快捷鍵、隨機分配',
+      '每日完成：標記今天、補存、提早存入',
+      '完成狀態圖表／剩餘天數存入金額表／目標期限／詳細項目',
+    ],
   },
   {
-    title: '加到手機主畫面',
-    body: '把網頁加到主畫面後，就能像 App 一樣點開。詳細步驟可看安裝教學。',
-    points: ['iPhone 請用 Safari', 'Android 建議用 Chrome', '安裝後資料仍在本機'],
+    title: '區塊收放、移動與增刪',
+    body: '你可以自由調整專案頁版面，讓常用功能更好找。',
+    points: [
+      '點區塊左側「−／＋」可收起或展開內容',
+      '按住區塊左側「⋮⋮」可拖曳排序上下位置',
+      '點「＋ 新增區塊」可補回已刪除的區塊',
+      '區塊右上可刪除不需要的區塊（至少保留一個）',
+    ],
+  },
+  {
+    title: '資料夾與專案整理',
+    body: '專案變多時，用資料夾與選單保持整齊。',
+    points: [
+      '拖曳專案到資料夾，或拖到「未分類」移出',
+      '資料夾標題旁可收合；左側 ⋮⋮ 可調整資料夾順序',
+      '點選專案後，左上「⋯」可搬移、重新命名、備註、刪除',
+      '可切換單選／多選一次操作多個專案',
+    ],
+  },
+  {
+    title: '登入、隱私與安裝',
+    body: '需要保護資料或想常用時，可登入並加到主畫面。',
+    points: [
+      '訪客可先試用；右上「登入」可註冊正式帳號',
+      '正式帳號資料會加密；可手動鎖定與清除資料',
+      '「隱私」可查看保護說明',
+      '可把網頁加到手機主畫面，像 App 一樣開啟',
+    ],
   },
 ] as const
 
@@ -106,49 +151,55 @@ export function UsageGuide({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h2 id={titleId}>使用教學</h2>
+          <h2 id={titleId}>功能介紹</h2>
           <button type="button" className="icon-button" onClick={finish} aria-label="關閉">
             ×
           </button>
         </header>
 
-        <div className="usage-guide-progress" aria-hidden="true">
-          {STEPS.map((item, index) => (
-            <span
-              key={item.title}
-              className={`usage-guide-dot ${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`}
-            />
-          ))}
+        <div className="usage-guide-body-scroll">
+          <div className="usage-guide-progress" aria-hidden="true">
+            {STEPS.map((item, index) => (
+              <span
+                key={item.title}
+                className={`usage-guide-dot ${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`}
+              />
+            ))}
+          </div>
+
+          <p className="usage-guide-step-label">
+            {step + 1}／{STEPS.length}
+          </p>
+          <h3 className="usage-guide-title">{current.title}</h3>
+          <p className="usage-guide-body">{current.body}</p>
+          <ul className="usage-guide-points">
+            {current.points.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+
+          {isLast && onOpenInstallGuide ? (
+            <button
+              type="button"
+              className="button button-secondary usage-guide-extra"
+              onClick={() => {
+                markUsageGuideSeen()
+                onClose()
+                onOpenInstallGuide()
+              }}
+            >
+              查看加入主畫面步驟
+            </button>
+          ) : null}
         </div>
-
-        <p className="usage-guide-step-label">
-          步驟 {step + 1}／{STEPS.length}
-        </p>
-        <h3 className="usage-guide-title">{current.title}</h3>
-        <p className="usage-guide-body">{current.body}</p>
-        <ul className="usage-guide-points">
-          {current.points.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ul>
-
-        {isLast && onOpenInstallGuide ? (
-          <button
-            type="button"
-            className="button button-secondary usage-guide-extra"
-            onClick={() => {
-              markUsageGuideSeen()
-              onClose()
-              onOpenInstallGuide()
-            }}
-          >
-            查看加入主畫面步驟
-          </button>
-        ) : null}
 
         <div className="modal-actions usage-guide-actions">
           {step > 0 ? (
-            <button type="button" className="button button-secondary" onClick={() => setStep((s) => s - 1)}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setStep((s) => s - 1)}
+            >
               上一步
             </button>
           ) : (
@@ -170,7 +221,11 @@ export function UsageGuide({
               {onStartCreate ? '開始建立專案' : '完成'}
             </button>
           ) : (
-            <button type="button" className="button button-primary" onClick={() => setStep((s) => s + 1)}>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => setStep((s) => s + 1)}
+            >
               下一步
             </button>
           )}

@@ -65,6 +65,23 @@ function formatShortDate(date: string) {
 }
 
 const DEPOSIT_QUICK_AMOUNTS = [100, 200, 500, 1000, 2000] as const
+const PROJECT_DETAIL_GUIDE_KEY = 'savings-system:project-detail-guide-seen'
+
+function hasSeenProjectDetailGuide() {
+  try {
+    return localStorage.getItem(PROJECT_DETAIL_GUIDE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markProjectDetailGuideSeen() {
+  try {
+    localStorage.setItem(PROJECT_DETAIL_GUIDE_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
 
 export function ProjectDetailScreen({
   project,
@@ -92,8 +109,20 @@ export function ProjectDetailScreen({
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [draggingId, setDraggingId] = useState<DetailPanelId | null>(null)
   const [dropTargetId, setDropTargetId] = useState<DetailPanelId | null>(null)
+  const [randomDoneTipOpen, setRandomDoneTipOpen] = useState(false)
+  const [firstVisitGuideOpen, setFirstVisitGuideOpen] = useState(false)
 
   const layout = project.detailLayout?.length ? project.detailLayout : DEFAULT_DETAIL_LAYOUT
+
+  useEffect(() => {
+    if (hasSeenProjectDetailGuide()) return
+    setFirstVisitGuideOpen(true)
+  }, [project.id])
+
+  const closeFirstVisitGuide = () => {
+    markProjectDetailGuideSeen()
+    setFirstVisitGuideOpen(false)
+  }
 
   useEffect(() => {
     setRandomEnabled(project.randomDeposit.enabled)
@@ -187,6 +216,12 @@ export function ProjectDetailScreen({
       maxAmount: max,
       regeneratePlan: true,
     })
+    if (randomEnabled) setRandomDoneTipOpen(true)
+  }
+
+  const handleRegenerateRandomPlan = () => {
+    onRegenerateRandomPlan()
+    setRandomDoneTipOpen(true)
   }
 
   const handleDepositRandomToday = () => {
@@ -478,7 +513,7 @@ export function ProjectDetailScreen({
                       <button
                         type="button"
                         className="button button-secondary"
-                        onClick={onRegenerateRandomPlan}
+                        onClick={handleRegenerateRandomPlan}
                         disabled={!project.randomDeposit.enabled}
                       >
                         重抽剩餘天數
@@ -823,6 +858,86 @@ export function ProjectDetailScreen({
         onClose={() => setRenameModalOpen(false)}
         onSave={onUpdateName}
       />
+
+      {firstVisitGuideOpen ? (
+        <div className="modal-backdrop random-tip-backdrop" onClick={closeFirstVisitGuide}>
+          <div
+            className="modal random-tip-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="project-guide-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2 id="project-guide-title">開始存錢</h2>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closeFirstVisitGuide}
+                aria-label="關閉"
+              >
+                ×
+              </button>
+            </header>
+            <p className="random-tip-lead">歡迎進入專案頁面，可以這樣開始：</p>
+            <ul className="random-tip-list">
+              <li>
+                到「存入金額設定」輸入今日存入金額，或用快捷鍵一鍵存入
+              </li>
+              <li>
+                也可以選擇啟用「隨機分配」，讓系統自動排出每日需存入金額
+              </li>
+              <li>存入後可在進度總覽查看今日是否完成</li>
+            </ul>
+            <div className="modal-actions">
+              <button type="button" className="button button-primary" onClick={closeFirstVisitGuide}>
+                開始使用
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {randomDoneTipOpen && !firstVisitGuideOpen ? (
+        <div
+          className="modal-backdrop random-tip-backdrop"
+          onClick={() => setRandomDoneTipOpen(false)}
+        >
+          <div
+            className="modal random-tip-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="random-tip-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2 id="random-tip-title">隨機分配完成</h2>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setRandomDoneTipOpen(false)}
+                aria-label="關閉"
+              >
+                ×
+              </button>
+            </header>
+            <p className="random-tip-lead">隨機分配存入金額已完成</p>
+            <ul className="random-tip-list">
+              <li>點擊展開下方「剩餘天數存入金額表」，查看每日分配金額</li>
+              <li>或點擊展開「完成狀態圖表」，查看詳細內容</li>
+            </ul>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => setRandomDoneTipOpen(false)}
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

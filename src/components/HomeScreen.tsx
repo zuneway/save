@@ -456,7 +456,7 @@ export function HomeScreen({
         </div>
         <div className="page-header-actions">
           <button type="button" className="button button-secondary button-compact" onClick={onOpenUsageGuide}>
-            教學
+            功能介紹
           </button>
           <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
             隱私
@@ -505,7 +505,7 @@ export function HomeScreen({
                 建立存錢專案
               </button>
               <button type="button" className="button button-secondary" onClick={onOpenUsageGuide}>
-                使用教學
+                功能介紹
               </button>
             </div>
             <ol className="empty-flow">
@@ -531,7 +531,7 @@ export function HomeScreen({
             <p className="home-tips">
               點擊右上「＋」新增存錢計畫專案 或
               <button type="button" className="home-tips-link" onClick={onOpenUsageGuide}>
-                點擊查看教學
+                點擊查看功能介紹
               </button>
             </p>
             <div className="content-stack">
