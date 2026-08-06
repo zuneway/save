@@ -39,23 +39,6 @@ export function CreateMenu({ open, onClose, onCreateFolder, onCreateProject }: C
           role="menuitem"
           onClick={() => {
             onClose()
-            onCreateFolder()
-          }}
-        >
-          <span className="create-menu-icon" aria-hidden="true">
-            📁
-          </span>
-          <span>
-            <strong>建立資料夾</strong>
-            <small>用來整理多個存錢專案</small>
-          </span>
-        </button>
-        <button
-          type="button"
-          className="create-menu-item"
-          role="menuitem"
-          onClick={() => {
-            onClose()
             onCreateProject()
           }}
         >
@@ -65,6 +48,23 @@ export function CreateMenu({ open, onClose, onCreateFolder, onCreateProject }: C
           <span>
             <strong>建立專案</strong>
             <small>新增一個存錢目標</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="create-menu-item"
+          role="menuitem"
+          onClick={() => {
+            onClose()
+            onCreateFolder()
+          }}
+        >
+          <span className="create-menu-icon" aria-hidden="true">
+            📁
+          </span>
+          <span>
+            <strong>建立資料夾</strong>
+            <small>用來整理多個存錢專案</small>
           </span>
         </button>
       </div>

@@ -97,24 +97,65 @@ export function formatTargetDate(date: Date) {
 export function formatDeadlineSummary(project: SavingsProject) {
   const targetDate = getTargetDate(project)
   const remainingDays = getRemainingDays(project)
+  const interval = getSavingsIntervalDays(project)
+  const modePrefix =
+    project.savingsMode === 'daily'
+      ? '日存 · '
+      : project.savingsMode === 'weekly'
+        ? '周存 · '
+        : project.savingsMode === 'monthly'
+          ? '月存 · '
+          : interval > 1
+            ? `每 ${interval} 天 · `
+            : ''
 
   if (project.deadline.type === 'days') {
     if (remainingDays > 0) {
-      return `目標 ${project.deadline.days} 天 · 還剩 ${remainingDays} 天（${formatTargetDate(targetDate)}）`
+      return `${modePrefix}目標 ${project.deadline.days} 天 · 還剩 ${remainingDays} 天（${formatTargetDate(targetDate)}）`
     }
     if (remainingDays === 0) {
-      return `目標 ${project.deadline.days} 天 · 今日到期（${formatTargetDate(targetDate)}）`
+      return `${modePrefix}目標 ${project.deadline.days} 天 · 今日到期（${formatTargetDate(targetDate)}）`
     }
-    return `目標 ${project.deadline.days} 天 · 已逾期 ${Math.abs(remainingDays)} 天（${formatTargetDate(targetDate)}）`
+    return `${modePrefix}目標 ${project.deadline.days} 天 · 已逾期 ${Math.abs(remainingDays)} 天（${formatTargetDate(targetDate)}）`
   }
 
   if (remainingDays > 0) {
-    return `目標日期 ${formatTargetDate(targetDate)} · 還剩 ${remainingDays} 天`
+    return `${modePrefix}目標日期 ${formatTargetDate(targetDate)} · 還剩 ${remainingDays} 天`
   }
   if (remainingDays === 0) {
-    return `目標日期 ${formatTargetDate(targetDate)} · 今日到期`
+    return `${modePrefix}目標日期 ${formatTargetDate(targetDate)} · 今日到期`
   }
-  return `目標日期 ${formatTargetDate(targetDate)} · 已逾期 ${Math.abs(remainingDays)} 天`
+  return `${modePrefix}目標日期 ${formatTargetDate(targetDate)} · 已逾期 ${Math.abs(remainingDays)} 天`
+}
+
+export function getSavingsIntervalDays(project: SavingsProject) {
+  if (typeof project.intervalDays === 'number' && project.intervalDays >= 1) {
+    return Math.floor(project.intervalDays)
+  }
+  if (project.savingsMode === 'daily') return 1
+  if (project.savingsMode === 'weekly') return 7
+  if (project.savingsMode === 'monthly') return 30
+  return 1
+}
+
+export function getSavingsModeLabel(project: SavingsProject) {
+  if (project.savingsMode === 'daily') return '日存'
+  if (project.savingsMode === 'weekly') return '周存'
+  if (project.savingsMode === 'monthly') return '月存'
+  const interval = getSavingsIntervalDays(project)
+  return interval > 1 ? `每${interval}天` : '自訂'
+}
+
+/** Suggested remaining period deposit for paced plans. */
+export function getSuggestedPeriodAmount(project: SavingsProject) {
+  if (project.periodAmount && project.periodAmount > 0) return project.periodAmount
+
+  const remaining = Math.max(0, project.targetAmount - project.currentAmount)
+  if (remaining <= 0) return 0
+
+  const interval = getSavingsIntervalDays(project)
+  const periods = Math.max(1, Math.ceil(getRemainingDayCount(project) / interval))
+  return Math.ceil(remaining / periods)
 }
 
 export function isValidDeadline(deadline: ProjectDeadline) {

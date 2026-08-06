@@ -21,6 +21,8 @@ import {
   getPlannedAmount,
   getRemainingAmount,
   getRemainingDays,
+  getSuggestedPeriodAmount,
+  getSavingsModeLabel,
   getTargetDate,
   getTodayDateInputValue,
   getTotalDays,
@@ -62,6 +64,8 @@ function formatShortDate(date: string) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
+const DEPOSIT_QUICK_AMOUNTS = [100, 200, 500, 1000, 2000] as const
+
 export function ProjectDetailScreen({
   project,
   onBack,
@@ -98,6 +102,20 @@ export function ProjectDetailScreen({
   }, [project.id, project.randomDeposit])
 
   const progress = getProgress(project.currentAmount, project.targetAmount)
+  const suggestedPeriodAmount = getSuggestedPeriodAmount(project)
+  const periodLabel = getSavingsModeLabel(project)
+  const periodNote = `${periodLabel}快捷`
+
+  const quickDeposit = (value: number, depositNote?: string) => {
+    if (value <= 0) return
+    onAddEntry({
+      amount: value,
+      note: depositNote,
+      date: getTodayDateInputValue(),
+    })
+    setAmount('')
+    setNote('')
+  }
   const totalDays = getTotalDays(project)
   const remainingDays = getRemainingDays(project)
   const completedDays = getCompletedDaysCount(project)
@@ -500,6 +518,27 @@ export function ProjectDetailScreen({
               <form className="entry-form" onSubmit={handleAddEntry}>
                 <label className="field">
                   <span>金額（NT$）</span>
+                  <div className="quick-chip-row" role="group" aria-label="金額快捷">
+                    {suggestedPeriodAmount > 0 ? (
+                      <button
+                        type="button"
+                        className={`quick-chip is-accent ${amount === String(suggestedPeriodAmount) ? 'is-active' : ''}`}
+                        onClick={() => setAmount(String(suggestedPeriodAmount))}
+                      >
+                        {periodLabel} {formatAmount(suggestedPeriodAmount)}
+                      </button>
+                    ) : null}
+                    {DEPOSIT_QUICK_AMOUNTS.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`quick-chip ${amount === String(value) ? 'is-active' : ''}`}
+                        onClick={() => setAmount(String(value))}
+                      >
+                        {value.toLocaleString('zh-TW')}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -523,6 +562,19 @@ export function ProjectDetailScreen({
                   存入並標記今日完成
                 </button>
               </form>
+
+              {suggestedPeriodAmount > 0 ? (
+                <div className="quick-deposit-actions">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => quickDeposit(suggestedPeriodAmount, periodNote)}
+                    disabled={suggestedPeriodAmount > remainingAmount}
+                  >
+                    一鍵存入{periodLabel}額（{formatAmount(suggestedPeriodAmount)}）
+                  </button>
+                </div>
+              ) : null}
             </div>
           </>
         )
@@ -635,6 +687,23 @@ export function ProjectDetailScreen({
         </div>
         <h1>{project.name}</h1>
         {project.note ? <p className="entity-note">{project.note}</p> : null}
+        {suggestedPeriodAmount > 0 ? (
+          <div className="plan-badge-row">
+            <span className="plan-badge">{periodLabel}計畫</span>
+            <button
+              type="button"
+              className="button button-primary button-compact"
+              onClick={() => quickDeposit(suggestedPeriodAmount, periodNote)}
+              disabled={suggestedPeriodAmount > remainingAmount}
+            >
+              快捷存入 {formatAmount(suggestedPeriodAmount)}
+            </button>
+          </div>
+        ) : (
+          <div className="plan-badge-row">
+            <span className="plan-badge is-muted">{periodLabel}計畫</span>
+          </div>
+        )}
       </header>
 
       <div className="panel-toolbar">
@@ -684,7 +753,11 @@ export function ProjectDetailScreen({
           <CollapsiblePanel
             key={panelId}
             title={DETAIL_PANEL_META[panelId].title}
-            defaultOpen={panelId !== 'entries' || project.entries.length > 0}
+            defaultOpen={
+              panelId === 'dayChart' || panelId === 'randomPlanTable'
+                ? false
+                : panelId !== 'entries' || project.entries.length > 0
+            }
             draggable
             isDropTarget={dropTargetId === panelId && draggingId !== panelId}
             onDelete={() => handleDeletePanel(panelId)}

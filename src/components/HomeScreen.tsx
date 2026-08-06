@@ -34,6 +34,7 @@ interface HomeScreenProps {
   onLogout: () => void
   onGoToLogin: () => void
   onOpenInstallGuide: () => void
+  onOpenUsageGuide: () => void
   onOpenPrivacy: () => void
   onLock?: () => void
   createProjectOpen: boolean
@@ -96,6 +97,7 @@ export function HomeScreen({
   onLogout,
   onGoToLogin,
   onOpenInstallGuide,
+  onOpenUsageGuide,
   onOpenPrivacy,
   onLock,
   createProjectOpen,
@@ -313,6 +315,7 @@ export function HomeScreen({
           </p>
           {project.note ? <p className="entity-note">{project.note}</p> : null}
           <p className={`project-deadline ${deadlineClass}`}>{formatDeadlineSummary(project)}</p>
+          <p className="project-open-hint">點擊進入</p>
           <div className="progress-track" aria-hidden="true">
             <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
@@ -444,11 +447,11 @@ export function HomeScreen({
           <p className="subtitle">{homeQuote}</p>
         </div>
         <div className="page-header-actions">
+          <button type="button" className="button button-secondary button-compact" onClick={onOpenUsageGuide}>
+            教學
+          </button>
           <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
             隱私
-          </button>
-          <button type="button" className="button button-secondary button-compact" onClick={onOpenInstallGuide}>
-            安裝教學
           </button>
           {!isGuest && onLock ? (
             <button type="button" className="button button-secondary button-compact" onClick={onLock}>
@@ -479,15 +482,51 @@ export function HomeScreen({
 
       <section className="projects-section">
         {!hasAnyContent ? (
-          <div className="empty-state">
+          <div className="empty-state empty-state-start">
             <div className="empty-icon" aria-hidden="true">
               💰
             </div>
-            <h2>還沒有任何內容</h2>
-            <p>點擊右上角「＋」，建立資料夾或存錢專案。</p>
+            <h2>開始你的第一筆存錢</h2>
+            <p>可選日存、周存、月存，或自訂每幾天存一次。</p>
+            <div className="empty-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => onCreateProjectOpenChange(true)}
+              >
+                建立存錢專案
+              </button>
+              <button type="button" className="button button-secondary" onClick={onOpenUsageGuide}>
+                使用教學
+              </button>
+            </div>
+            <ol className="empty-flow">
+              <li>
+                <strong>1</strong>
+                <span>建立專案</span>
+              </li>
+              <li>
+                <strong>2</strong>
+                <span>點進去存錢</span>
+              </li>
+              <li>
+                <strong>3</strong>
+                <span>需要時再登入</span>
+              </li>
+            </ol>
+            <button type="button" className="text-link-button" onClick={onOpenInstallGuide}>
+              想加到手機主畫面？看安裝步驟
+            </button>
           </div>
         ) : (
-          <div className="content-stack">
+          <>
+            <p className="home-tips">
+              點擊右上「＋」新增存錢計畫專案 或
+              <button type="button" className="home-tips-link" onClick={onOpenUsageGuide}>
+                點擊查看教學
+              </button>
+            </p>
+            <div className="content-stack">
             {folders.length > 0 && (
               <section
                 className={`folder-block ${isFolderOpen('__folders__') ? '' : 'is-collapsed'}`}
@@ -712,6 +751,7 @@ export function HomeScreen({
               </section>
             )}
           </div>
+          </>
         )}
       </section>
 

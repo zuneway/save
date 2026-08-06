@@ -5,6 +5,11 @@ import { InstallGuide } from './components/InstallGuide'
 import { PrivacyPanel } from './components/PrivacyPanel'
 import { ProjectDetailScreen } from './components/ProjectDetailScreen'
 import { UnlockScreen } from './components/UnlockScreen'
+import {
+  UsageGuide,
+  hasSeenUsageGuide,
+  markUsageGuideSeen,
+} from './components/UsageGuide'
 import { useAuth } from './hooks/useAuth'
 import { useSavingsProjects } from './hooks/useSavingsProjects'
 import './App.css'
@@ -55,6 +60,7 @@ function AuthenticatedApp({
   })
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
+  const [usageGuideOpen, setUsageGuideOpen] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
 
   const activeProject = activeProjectId
@@ -66,6 +72,11 @@ function AuthenticatedApp({
       setActiveProjectId(null)
     }
   }, [activeProjectId, activeProject])
+
+  useEffect(() => {
+    if (!storageReady) return
+    if (!hasSeenUsageGuide()) setUsageGuideOpen(true)
+  }, [storageReady])
 
   if (!storageReady) {
     return (
@@ -119,6 +130,7 @@ function AuthenticatedApp({
           onLogout={onLogout}
           onGoToLogin={onGoToLogin}
           onOpenInstallGuide={() => setInstallGuideOpen(true)}
+          onOpenUsageGuide={() => setUsageGuideOpen(true)}
           onOpenPrivacy={onOpenPrivacy}
           onLock={onLock}
           createProjectOpen={createProjectOpen}
@@ -126,6 +138,21 @@ function AuthenticatedApp({
         />
       )}
       <InstallGuide open={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
+      <UsageGuide
+        open={usageGuideOpen}
+        onClose={() => {
+          markUsageGuideSeen()
+          setUsageGuideOpen(false)
+        }}
+        onStartCreate={
+          activeProject
+            ? undefined
+            : () => {
+                setCreateProjectOpen(true)
+              }
+        }
+        onOpenInstallGuide={() => setInstallGuideOpen(true)}
+      />
     </>
   )
 }

@@ -148,6 +148,8 @@ function normalizeProject(raw: unknown): SavingsProject | null {
       ...raw,
       note: undefined,
       deadline: { type: 'days', days: 30 },
+      savingsMode: 'daily',
+      intervalDays: 1,
       folderId: null,
       completedDates: [],
       entries: [],
@@ -177,6 +179,33 @@ function normalizeProject(raw: unknown): SavingsProject | null {
   const note =
     typeof project.note === 'string' && project.note.trim() ? project.note.trim() : undefined
 
+  const savingsMode: SavingsProject['savingsMode'] =
+    project.savingsMode === 'weekly' ||
+    project.savingsMode === 'monthly' ||
+    project.savingsMode === 'daily' ||
+    project.savingsMode === 'custom'
+      ? project.savingsMode
+      : 'daily'
+
+  let intervalDays =
+    typeof project.intervalDays === 'number' && project.intervalDays >= 1
+      ? Math.floor(project.intervalDays)
+      : savingsMode === 'weekly'
+        ? 7
+        : savingsMode === 'monthly'
+          ? 30
+          : 1
+
+  // Old "custom" freeform projects without interval → treat as daily.
+  if (project.savingsMode === 'custom' && typeof project.intervalDays !== 'number') {
+    intervalDays = 1
+  }
+
+  const periodAmount =
+    typeof project.periodAmount === 'number' && project.periodAmount > 0
+      ? Math.floor(project.periodAmount)
+      : undefined
+
   return {
     id: project.id,
     name: project.name,
@@ -185,6 +214,9 @@ function normalizeProject(raw: unknown): SavingsProject | null {
     currentAmount: project.currentAmount ?? entries.reduce((sum, entry) => sum + entry.amount, 0),
     createdAt: project.createdAt ?? new Date().toISOString(),
     deadline: project.deadline,
+    savingsMode,
+    intervalDays,
+    periodAmount,
     folderId: project.folderId ?? null,
     completedDates,
     entries,
@@ -352,6 +384,15 @@ export function useSavingsProjects(
 
   const createProject = useCallback((input: CreateProjectInput) => {
     const note = input.note?.trim() || undefined
+    const savingsMode = input.savingsMode ?? 'daily'
+    const intervalDays =
+      typeof input.intervalDays === 'number' && input.intervalDays >= 1
+        ? Math.floor(input.intervalDays)
+        : savingsMode === 'weekly'
+          ? 7
+          : savingsMode === 'monthly'
+            ? 30
+            : 1
     const project: SavingsProject = {
       id: crypto.randomUUID(),
       name: input.name.trim(),
@@ -360,6 +401,12 @@ export function useSavingsProjects(
       currentAmount: 0,
       createdAt: new Date().toISOString(),
       deadline: input.deadline,
+      savingsMode,
+      intervalDays,
+      periodAmount:
+        typeof input.periodAmount === 'number' && input.periodAmount > 0
+          ? Math.floor(input.periodAmount)
+          : undefined,
       folderId: input.folderId ?? null,
       completedDates: [],
       entries: [],

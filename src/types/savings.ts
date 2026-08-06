@@ -2,6 +2,9 @@ export type ProjectDeadline =
   | { type: 'days'; days: number }
   | { type: 'date'; date: string }
 
+/** How often the user plans to deposit. */
+export type SavingsMode = 'daily' | 'weekly' | 'monthly' | 'custom'
+
 export interface ProjectFolder {
   id: string
   name: string
@@ -36,6 +39,12 @@ export interface SavingsProject {
   currentAmount: number
   createdAt: string
   deadline: ProjectDeadline
+  /** daily / weekly / monthly / custom interval */
+  savingsMode: SavingsMode
+  /** Days between each planned deposit (1=日存, 7=周存, 30=月存, N=自訂) */
+  intervalDays: number
+  /** Suggested deposit per period for quick actions */
+  periodAmount?: number
   folderId: string | null
   /** YYYY-MM-DD dates marked as completed check-ins */
   completedDates: string[]
@@ -51,6 +60,9 @@ export interface CreateProjectInput {
   name: string
   targetAmount: number
   deadline: ProjectDeadline
+  savingsMode?: SavingsMode
+  intervalDays?: number
+  periodAmount?: number
   folderId?: string | null
   note?: string
 }
@@ -99,11 +111,11 @@ export const DETAIL_PANEL_META: Record<DetailPanelId, { title: string }> = {
 }
 
 export const DEFAULT_DETAIL_LAYOUT: DetailPanelId[] = [
+  'deposit',
   'dailyComplete',
   'overview',
   'dayChart',
   'deadline',
-  'deposit',
   'randomPlanTable',
   'entries',
 ]
