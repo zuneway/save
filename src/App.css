@@ -2227,6 +2227,17 @@ body.wish-pool-open .page-header {
   margin-top: 8px;
 }
 
+.privacy-backup-msg {
+  margin: 10px 0 0;
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.privacy-section p + p {
+  margin-top: 8px;
+}
+
 .privacy-warn {
   padding: 12px 14px;
   border-radius: 14px;

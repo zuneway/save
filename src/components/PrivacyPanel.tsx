@@ -1,5 +1,6 @@
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { downloadBackup, importLocalBackup, parseBackupJson } from '../utils/backup'
 
 interface PrivacyPanelProps {
   open: boolean
@@ -10,6 +11,7 @@ interface PrivacyPanelProps {
   onLock?: () => void
   onWipeCurrentData: () => void
   onWipeAllLocalData: () => void
+  onBackupImported?: () => void
 }
 
 export function PrivacyPanel({
@@ -21,11 +23,17 @@ export function PrivacyPanel({
   onLock,
   onWipeCurrentData,
   onWipeAllLocalData,
+  onBackupImported,
 }: PrivacyPanelProps) {
   const titleId = useId()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [backupMessage, setBackupMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setBackupMessage(null)
+      return
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
@@ -34,6 +42,41 @@ export function PrivacyPanel({
   }, [open, onClose])
 
   if (!open) return null
+
+  const handleExport = () => {
+    try {
+      downloadBackup()
+      setBackupMessage('已下載備份檔。請把檔案傳到手機後，在手機版按「匯入備份」。')
+    } catch {
+      setBackupMessage('匯出失敗，請再試一次。')
+    }
+  }
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return
+    try {
+      const text = await file.text()
+      const backup = parseBackupJson(text)
+      const count = Object.keys(backup.entries).length
+      if (
+        !window.confirm(
+          `確定匯入備份？將寫入 ${count} 筆本機資料（含帳號與存錢內容），並請重新登入。同名帳號資料會被備份覆蓋。`,
+        )
+      ) {
+        return
+      }
+      importLocalBackup(backup)
+      setBackupMessage('匯入完成，即將重新載入…')
+      onBackupImported?.()
+      window.setTimeout(() => {
+        window.location.reload()
+      }, 400)
+    } catch (error) {
+      setBackupMessage(error instanceof Error ? error.message : '匯入失敗')
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   return createPortal(
     <div className="modal-backdrop privacy-backdrop" onClick={onClose}>
@@ -63,13 +106,47 @@ export function PrivacyPanel({
             </p>
           </section>
 
+          <section className="privacy-section privacy-warn">
+            <h3>為什麼網頁與手機帳號沒連動？</h3>
+            <p>
+              資料存在「目前這個瀏覽器／裝置」的本機空間，沒有雲端同步。電腦網頁與手機 App
+              （或不同瀏覽器）彼此獨立，所以帳號不會自動相同。
+            </p>
+            <p>若要兩邊使用同一組帳號與資料，請用下方「匯出備份 → 傳到另一台 → 匯入備份」。</p>
+          </section>
+
+          <section className="privacy-section">
+            <h3>帳號資料備份（網頁 ↔ 手機）</h3>
+            <p>匯出後可用檔案傳輸、雲端硬碟或 Instant Hotspot 傳到另一台裝置再匯入。</p>
+            <button type="button" className="button button-secondary" onClick={handleExport}>
+              匯出備份檔
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              匯入備份檔
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(event) => {
+                void handleImportFile(event.target.files?.[0] ?? null)
+              }}
+            />
+            {backupMessage ? <p className="privacy-backup-msg">{backupMessage}</p> : null}
+          </section>
+
           <section className="privacy-section">
             <h3>我們如何保護</h3>
             <ul>
               <li>正式帳號密碼以 PBKDF2（SHA-256）加鹽雜湊，不明文保存。</li>
               <li>存錢資料以 AES-GCM 加密後才寫入此裝置瀏覽器。</li>
               <li>可隨時按「鎖定」清除解密金鑰；關閉瀏覽器分頁後需重新登入解鎖。</li>
-              <li>本系統無雲端帳號同步；資料預設只留在這台裝置。</li>
+              <li>本系統無雲端帳號同步；跨裝置請用備份匯出／匯入。</li>
             </ul>
           </section>
 
