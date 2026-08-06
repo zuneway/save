@@ -82,7 +82,9 @@ export function InstallGuide({ open, onClose }: InstallGuideProps) {
           {platform === 'desktop' && (
             <p>若在電腦瀏覽，可先用手機開啟網站後再依上方步驟加入主畫面。</p>
           )}
-          <p>正式帳號登入後，資料會自動同步雲端；訪客資料仍只存在這台裝置。</p>
+          <p>
+            加到主畫面後，請再登入一次同一個正式帳號（主畫面版與瀏覽器版儲存空間分開）。登入後資料會自動雲端同步。
+          </p>
         </div>
 
         <div className="modal-actions">

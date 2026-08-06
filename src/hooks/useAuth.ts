@@ -412,8 +412,9 @@ export function useAuth() {
         if (cancelled) return
 
         if (firebaseUser) {
+          // Always refresh cloud profile/payload so web and home-screen PWA stay aligned.
           let meta = loadCloudMeta(firebaseUser.uid)
-          if (!meta) {
+          try {
             const doc = await fetchCloudUserDoc(firebaseUser.uid)
             if (doc) {
               meta = {
@@ -428,6 +429,8 @@ export function useAuth() {
                 localStorage.setItem(storageDataKey(firebaseUser.uid), doc.payload)
               }
             }
+          } catch {
+            // Offline: keep cached meta/payload.
           }
 
           const username =
@@ -447,6 +450,7 @@ export function useAuth() {
           return
         }
 
+        // Cloud mode: do not auto-enter guest. Show login so both web/PWA can use same account.
         setCloudUsername(null)
         const currentSession = loadSession()
         if (currentSession?.isGuest || currentSession?.userId === GUEST_USER_ID) {
@@ -462,23 +466,10 @@ export function useAuth() {
           return
         }
 
-        if (currentSession && !currentSession.isGuest) {
-          clearStoredDataKey()
-          saveSession(null)
-          if (!cancelled) {
-            setSession(null)
-            setDataCryptoKey(null)
-            setReady(true)
-          }
-          return
-        }
-
-        ensureGuestDataReady()
-        const guestSession: AuthSession = { userId: GUEST_USER_ID, isGuest: true }
-        saveSession(guestSession)
         clearStoredDataKey()
+        saveSession(null)
         if (!cancelled) {
-          setSession(guestSession)
+          setSession(null)
           setDataCryptoKey(null)
           setReady(true)
         }

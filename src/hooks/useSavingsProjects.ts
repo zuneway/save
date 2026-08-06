@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AddEntryInput,
   CreateFolderInput,
@@ -487,6 +487,45 @@ export function useSavingsProjects(
       cancelled = true
     }
   }, [userId, encrypt, dataKey])
+
+  const dataRef = useRef(data)
+  dataRef.current = data
+
+  // Keep registered accounts fresh across devices while the app stays open.
+  useEffect(() => {
+    if (!storageReady || !encrypt || !dataKey || !isFirebaseConfigured()) return
+
+    let cancelled = false
+    const pull = () => {
+      void (async () => {
+        const current = dataRef.current
+        try {
+          const merged = await pullAndMergeCloud(userId, current, { encrypt, dataKey })
+          if (cancelled) return
+          if (readUpdatedAt(merged) > readUpdatedAt(current)) {
+            setData(merged)
+            setSyncState('synced')
+          }
+        } catch {
+          if (!cancelled) setSyncState('offline')
+        }
+      })()
+    }
+
+    const timer = window.setInterval(pull, 20_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') pull()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', pull)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', pull)
+    }
+  }, [storageReady, encrypt, dataKey, userId])
 
   useEffect(() => {
     if (!storageReady) return

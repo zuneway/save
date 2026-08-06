@@ -489,6 +489,17 @@ export function HomeScreen({
       </header>
 
       <section className="projects-section">
+        {isGuest ? (
+          <div className="sync-callout" role="status">
+            <strong>訪客模式不會跨裝置同步</strong>
+            <p>
+              手機網頁版與主畫面版的訪客資料是分開的。請兩邊都按「登入」，使用同一個正式帳號，資料就會自動對齊。
+            </p>
+            <button type="button" className="button button-primary button-compact" onClick={onGoToLogin}>
+              立即登入同步
+            </button>
+          </div>
+        ) : null}
         {!hasAnyContent ? (
           <div className="empty-state empty-state-start">
             <div className="empty-icon" aria-hidden="true">
@@ -519,7 +530,7 @@ export function HomeScreen({
               </li>
               <li>
                 <strong>3</strong>
-                <span>需要時再登入</span>
+                <span>登入正式帳號以同步</span>
               </li>
             </ol>
             <button type="button" className="text-link-button" onClick={onOpenInstallGuide}>

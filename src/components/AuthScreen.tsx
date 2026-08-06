@@ -52,7 +52,9 @@ export function AuthScreen({
       <header className="auth-hero">
         <p className="eyebrow">Savings Tracker</p>
         <h1>存錢系統</h1>
-        <p className="subtitle">登入帳號後自動雲端同步，或先以訪客試用</p>
+        <p className="subtitle">
+          網頁版與主畫面版請登入同一個正式帳號，資料才會自動同步；訪客模式兩邊各自獨立。
+        </p>
       </header>
 
       <section className="auth-card">
@@ -126,8 +128,12 @@ export function AuthScreen({
 
           {error ? <p className="auth-error">{error}</p> : null}
 
+          <p className="auth-sync-hint">
+            手機瀏覽器與「加到主畫面」的 App 儲存空間是分開的，兩邊都要用同一組帳號密碼登入。
+          </p>
+
           <button type="submit" className="button button-primary" disabled={busy}>
-            {busy ? '處理中…' : mode === 'login' ? '登入' : '建立帳號'}
+            {busy ? '處理中…' : mode === 'login' ? '登入並同步' : '建立帳號並同步'}
           </button>
         </form>
 
@@ -144,7 +150,7 @@ export function AuthScreen({
             onEnterGuest()
           }}
         >
-          返回訪客模式
+          先以訪客試用（不同步）
         </button>
       </section>
 

@@ -1,5 +1,10 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
+import {
+  browserLocalPersistence,
+  getAuth,
+  setPersistence,
+  type Auth,
+} from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -35,7 +40,10 @@ function ensureApp(): FirebaseApp {
 }
 
 export function getFirebaseAuth(): Auth {
-  if (!auth) auth = getAuth(ensureApp())
+  if (!auth) {
+    auth = getAuth(ensureApp())
+    void setPersistence(auth, browserLocalPersistence)
+  }
   return auth
 }
 
