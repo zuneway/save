@@ -111,9 +111,9 @@ export const DETAIL_PANEL_META: Record<DetailPanelId, { title: string }> = {
 }
 
 export const DEFAULT_DETAIL_LAYOUT: DetailPanelId[] = [
+  'overview',
   'deposit',
   'dailyComplete',
-  'overview',
   'dayChart',
   'deadline',
   'randomPlanTable',

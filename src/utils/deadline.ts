@@ -82,6 +82,56 @@ export function isTodayCompleted(project: SavingsProject, today = getTodayDateIn
   return (project.completedDates ?? []).includes(today)
 }
 
+/**
+ * Whether the current savings stage is done:
+ * - daily / random: today marked complete
+ * - weekly / monthly / custom: any completion inside the current interval window
+ */
+export function isCurrentStageCompleted(project: SavingsProject, from = new Date()) {
+  if (project.currentAmount >= project.targetAmount) return true
+
+  const today = toDateKey(startOfDay(from))
+  const completed = project.completedDates ?? []
+  if (completed.includes(today)) return true
+
+  // Random daily plan still follows "today" as the stage.
+  if (project.randomDeposit?.enabled) return false
+
+  const interval = getSavingsIntervalDays(project)
+  if (interval <= 1) return false
+
+  const end = startOfDay(from)
+  const start = new Date(end)
+  start.setDate(start.getDate() - (interval - 1))
+  const windowKeys = new Set(listDateKeys(start, end))
+  return completed.some((date) => windowKeys.has(date))
+}
+
+export function getCurrentStageStatus(project: SavingsProject) {
+  const done = isCurrentStageCompleted(project)
+  const goalReached = project.currentAmount >= project.targetAmount
+
+  if (goalReached) {
+    return { done: true as const, label: '目標已達成' }
+  }
+
+  if (project.randomDeposit?.enabled || project.savingsMode === 'daily') {
+    return { done, label: done ? '今日已完成' : '今日未完成' }
+  }
+  if (project.savingsMode === 'weekly') {
+    return { done, label: done ? '本週已完成' : '本週未完成' }
+  }
+  if (project.savingsMode === 'monthly') {
+    return { done, label: done ? '本月已完成' : '本月未完成' }
+  }
+
+  const interval = getSavingsIntervalDays(project)
+  return {
+    done,
+    label: done ? `本期已完成` : `本期未完成（每${interval}天）`,
+  }
+}
+
 export function getCompletedDaysCount(project: SavingsProject) {
   return (project.completedDates ?? []).length
 }

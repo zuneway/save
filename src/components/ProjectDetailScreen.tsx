@@ -105,6 +105,14 @@ export function ProjectDetailScreen({
   const suggestedPeriodAmount = getSuggestedPeriodAmount(project)
   const periodLabel = getSavingsModeLabel(project)
   const periodNote = `${periodLabel}快捷`
+  const today = getTodayDateInputValue()
+  const todayPlan = getPlannedAmount(project, today)
+  const randomTodayAmount =
+    project.randomDeposit.enabled && todayPlan != null && todayPlan > 0 ? todayPlan : null
+  const quickPrimaryAmount =
+    randomTodayAmount ?? (suggestedPeriodAmount > 0 ? suggestedPeriodAmount : null)
+  const quickPrimaryLabel = randomTodayAmount != null ? '今日' : periodLabel
+  const quickPrimaryNote = randomTodayAmount != null ? '今日需存入' : periodNote
 
   const quickDeposit = (value: number, depositNote?: string) => {
     if (value <= 0) return
@@ -122,10 +130,15 @@ export function ProjectDetailScreen({
   const elapsedDays = getElapsedDays(project)
   const todayCompleted = isTodayCompleted(project)
   const targetDate = getTargetDate(project)
-  const today = getTodayDateInputValue()
-  const todayPlan = getPlannedAmount(project, today)
   const remainingAmount = getRemainingAmount(project)
   const openPlanTotal = getOpenPlanTotal(project)
+
+  // After random plan is ready, keep the amount field synced to today's assigned amount.
+  useEffect(() => {
+    if (randomTodayAmount == null) return
+    if (todayCompleted) return
+    setAmount(String(randomTodayAmount))
+  }, [project.id, randomTodayAmount, todayCompleted])
 
   const dayProgress = useMemo(() => {
     if (totalDays <= 0) return 0
@@ -519,25 +532,27 @@ export function ProjectDetailScreen({
                 <label className="field">
                   <span>金額（NT$）</span>
                   <div className="quick-chip-row" role="group" aria-label="金額快捷">
-                    {suggestedPeriodAmount > 0 ? (
+                    {quickPrimaryAmount != null ? (
                       <button
                         type="button"
-                        className={`quick-chip is-accent ${amount === String(suggestedPeriodAmount) ? 'is-active' : ''}`}
-                        onClick={() => setAmount(String(suggestedPeriodAmount))}
+                        className={`quick-chip is-accent ${amount === String(quickPrimaryAmount) ? 'is-active' : ''}`}
+                        onClick={() => setAmount(String(quickPrimaryAmount))}
                       >
-                        {periodLabel} {formatAmount(suggestedPeriodAmount)}
+                        {quickPrimaryLabel} {formatAmount(quickPrimaryAmount)}
                       </button>
                     ) : null}
-                    {DEPOSIT_QUICK_AMOUNTS.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`quick-chip ${amount === String(value) ? 'is-active' : ''}`}
-                        onClick={() => setAmount(String(value))}
-                      >
-                        {value.toLocaleString('zh-TW')}
-                      </button>
-                    ))}
+                    {DEPOSIT_QUICK_AMOUNTS.filter((value) => value !== quickPrimaryAmount).map(
+                      (value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`quick-chip ${amount === String(value) ? 'is-active' : ''}`}
+                          onClick={() => setAmount(String(value))}
+                        >
+                          {value.toLocaleString('zh-TW')}
+                        </button>
+                      ),
+                    )}
                   </div>
                   <input
                     type="text"
@@ -563,15 +578,18 @@ export function ProjectDetailScreen({
                 </button>
               </form>
 
-              {suggestedPeriodAmount > 0 ? (
+              {quickPrimaryAmount != null ? (
                 <div className="quick-deposit-actions">
                   <button
                     type="button"
                     className="button button-secondary"
-                    onClick={() => quickDeposit(suggestedPeriodAmount, periodNote)}
-                    disabled={suggestedPeriodAmount > remainingAmount}
+                    onClick={() => quickDeposit(quickPrimaryAmount, quickPrimaryNote)}
+                    disabled={
+                      quickPrimaryAmount > remainingAmount ||
+                      (randomTodayAmount != null && todayCompleted)
+                    }
                   >
-                    一鍵存入{periodLabel}額（{formatAmount(suggestedPeriodAmount)}）
+                    一鍵存入{quickPrimaryLabel}額（{formatAmount(quickPrimaryAmount)}）
                   </button>
                 </div>
               ) : null}
@@ -687,16 +705,30 @@ export function ProjectDetailScreen({
         </div>
         <h1>{project.name}</h1>
         {project.note ? <p className="entity-note">{project.note}</p> : null}
-        {suggestedPeriodAmount > 0 ? (
+
+        {randomTodayAmount != null ? (
+          <div className={`today-save-tip ${todayCompleted ? 'is-done' : 'is-pending'}`}>
+            <div>
+              <span>今日需存入金額</span>
+              <strong>{formatAmount(randomTodayAmount)}</strong>
+            </div>
+            <em>{todayCompleted ? '今日已完成' : '請依此金額存入'}</em>
+          </div>
+        ) : null}
+
+        {quickPrimaryAmount != null ? (
           <div className="plan-badge-row">
             <span className="plan-badge">{periodLabel}計畫</span>
             <button
               type="button"
               className="button button-primary button-compact"
-              onClick={() => quickDeposit(suggestedPeriodAmount, periodNote)}
-              disabled={suggestedPeriodAmount > remainingAmount}
+              onClick={() => quickDeposit(quickPrimaryAmount, quickPrimaryNote)}
+              disabled={
+                quickPrimaryAmount > remainingAmount ||
+                (randomTodayAmount != null && todayCompleted)
+              }
             >
-              快捷存入 {formatAmount(suggestedPeriodAmount)}
+              快捷存入 {formatAmount(quickPrimaryAmount)}
             </button>
           </div>
         ) : (

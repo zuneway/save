@@ -6,7 +6,7 @@ import type {
   SavingsProject,
   SelectionMode,
 } from '../types/savings'
-import { formatDeadlineSummary, getRemainingDays } from '../utils/deadline'
+import { formatDeadlineSummary, getCurrentStageStatus, getRemainingDays } from '../utils/deadline'
 import { formatAmount } from '../utils/money'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
@@ -275,11 +275,12 @@ export function HomeScreen({
     const deadlineClass =
       remainingDays < 0 ? 'is-overdue' : remainingDays === 0 ? 'is-due-today' : ''
     const selected = selectedIds.includes(project.id)
+    const stage = getCurrentStageStatus(project)
 
     return (
       <li key={project.id}>
         <div
-          className={`project-card ${selected ? 'is-selected' : ''}`}
+          className={`project-card ${selected ? 'is-selected' : ''} ${stage.done ? 'is-stage-done' : 'is-stage-pending'}`}
           draggable
           onClick={() => onOpenProject(project.id)}
           onDragStart={(event) => handleDragStart(event, project.id)}
@@ -308,6 +309,13 @@ export function HomeScreen({
               <h2>{project.name}</h2>
             </div>
             <span className="progress-badge">{progress}%</span>
+          </div>
+          <div
+            className={`stage-status ${stage.done ? 'is-done' : 'is-pending'}`}
+            aria-label={stage.label}
+          >
+            <span className="stage-status-dot" aria-hidden="true" />
+            <span>{stage.label}</span>
           </div>
           <p className="project-amounts">
             {formatAmount(project.currentAmount)}

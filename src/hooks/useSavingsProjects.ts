@@ -137,7 +137,16 @@ function normalizeDetailLayout(raw: unknown): DetailPanelId[] {
       unique.push(mapped as DetailPanelId)
     }
   }
-  return unique.length > 0 ? unique : [...DEFAULT_DETAIL_LAYOUT]
+  return unique.length > 0 ? putOverviewFirst(unique) : [...DEFAULT_DETAIL_LAYOUT]
+}
+
+function putOverviewFirst(layout: DetailPanelId[]) {
+  const overviewIndex = layout.indexOf('overview')
+  if (overviewIndex <= 0) return layout
+  const next = [...layout]
+  next.splice(overviewIndex, 1)
+  next.unshift('overview')
+  return next
 }
 
 function normalizeProject(raw: unknown): SavingsProject | null {
