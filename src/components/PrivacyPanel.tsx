@@ -9,7 +9,6 @@ interface PrivacyPanelProps {
   username: string
   syncState?: 'idle' | 'syncing' | 'synced' | 'offline'
   onClose: () => void
-  onLock?: () => void
   onWipeCurrentData: () => void
   onWipeAllLocalData: () => void
 }
@@ -21,7 +20,6 @@ export function PrivacyPanel({
   username,
   syncState = 'idle',
   onClose,
-  onLock,
   onWipeCurrentData,
   onWipeAllLocalData,
 }: PrivacyPanelProps) {
@@ -76,7 +74,7 @@ export function PrivacyPanel({
                 ? '尚未登入'
                 : isGuest
                   ? `帳號：${username}（訪客模式，僅存本機）`
-                  : `帳號：${username}（正式帳號，資料加密）`}
+                  : `帳號：${username}（正式帳號，雲端同步）`}
             </p>
             {syncLabel ? <p>{syncLabel}</p> : null}
           </section>
@@ -89,7 +87,7 @@ export function PrivacyPanel({
               </p>
             ) : cloudEnabled ? (
               <p>
-                正式帳號的資料會自動上傳雲端並在各裝置同步，不必再手動匯出或匯入。請在每台裝置用同一組帳號密碼登入。
+                正式帳號的資料會自動上傳雲端並在各裝置同步。請在每台裝置用同一組帳號密碼登入。
               </p>
             ) : (
               <p className="privacy-warn">
@@ -102,9 +100,9 @@ export function PrivacyPanel({
             <h3>我們如何保護</h3>
             <ul>
               <li>正式帳號以雲端身分驗證登入；密碼不會明文保存在本機。</li>
-              <li>存錢資料以 AES-GCM 加密後才寫入本機與雲端，只有你的密碼能解鎖。</li>
-              <li>可隨時按「鎖定」清除解密金鑰；關閉瀏覽器分頁後需重新輸入密碼解鎖。</li>
-              <li>訪客模式資料不加密、不同步雲端。</li>
+              <li>存錢資料以 AES-GCM 加密後才寫入本機與雲端。</li>
+              <li>登入後可直接使用，不必再另外輸入密碼解鎖。</li>
+              <li>訪客模式資料不同步雲端。</li>
             </ul>
           </section>
 
@@ -112,25 +110,8 @@ export function PrivacyPanel({
             <section className="privacy-section privacy-warn">
               <h3>訪客模式提醒</h3>
               <p>
-                訪客資料以明文保存在本機，任何能操作此瀏覽器的人都可以看到。若有敏感金額或備註，請改為註冊正式帳號以啟用雲端同步。
+                訪客資料保存在本機，任何能操作此瀏覽器的人都可以看到。若有敏感金額或備註，請改為註冊正式帳號以啟用雲端同步。
               </p>
-            </section>
-          ) : null}
-
-          {signedIn && !isGuest ? (
-            <section className="privacy-section">
-              <h3>立即鎖定</h3>
-              <p>隱藏畫面內容並清除記憶體中的解密金鑰。</p>
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => {
-                  onLock?.()
-                  onClose()
-                }}
-              >
-                立即鎖定
-              </button>
             </section>
           ) : null}
 

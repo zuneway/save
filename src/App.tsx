@@ -4,7 +4,6 @@ import { HomeScreen } from './components/HomeScreen'
 import { InstallGuide } from './components/InstallGuide'
 import { PrivacyPanel } from './components/PrivacyPanel'
 import { ProjectDetailScreen } from './components/ProjectDetailScreen'
-import { UnlockScreen } from './components/UnlockScreen'
 import {
   UsageGuide,
   hasSeenUsageGuide,
@@ -22,7 +21,6 @@ function AuthenticatedApp({
   dataCryptoKey,
   onLogout,
   onGoToLogin,
-  onLock,
   onOpenPrivacy,
   onSyncStateChange,
 }: {
@@ -32,7 +30,6 @@ function AuthenticatedApp({
   dataCryptoKey: CryptoKey | null
   onLogout: () => void
   onGoToLogin: () => void
-  onLock?: () => void
   onOpenPrivacy: () => void
   onSyncStateChange?: (state: 'idle' | 'syncing' | 'synced' | 'offline') => void
 }) {
@@ -140,7 +137,6 @@ function AuthenticatedApp({
           onOpenInstallGuide={() => setInstallGuideOpen(true)}
           onOpenUsageGuide={() => setUsageGuideOpen(true)}
           onOpenPrivacy={onOpenPrivacy}
-          onLock={onLock}
           createProjectOpen={createProjectOpen}
           onCreateProjectOpenChange={setCreateProjectOpen}
         />
@@ -170,12 +166,9 @@ function App() {
     ready,
     currentUser,
     dataCryptoKey,
-    needsUnlock,
     login,
     register,
     enterGuest,
-    unlock,
-    lock,
     logout,
     wipeCurrentUserData,
     wipeAllLocalData,
@@ -196,9 +189,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      {currentUser && needsUnlock ? (
-        <UnlockScreen username={currentUser.username} onUnlock={unlock} onLogout={logout} />
-      ) : currentUser ? (
+      {currentUser ? (
         <AuthenticatedApp
           key={currentUser.id}
           userId={currentUser.id}
@@ -207,7 +198,6 @@ function App() {
           dataCryptoKey={dataCryptoKey}
           onLogout={logout}
           onGoToLogin={logout}
-          onLock={currentUser.isGuest ? undefined : lock}
           onOpenPrivacy={() => setPrivacyOpen(true)}
           onSyncStateChange={setSyncState}
         />
@@ -231,7 +221,6 @@ function App() {
         username={currentUser?.username ?? '尚未登入'}
         syncState={syncState}
         onClose={() => setPrivacyOpen(false)}
-        onLock={currentUser && !currentUser.isGuest ? lock : undefined}
         onWipeCurrentData={wipeCurrentUserData}
         onWipeAllLocalData={wipeAllLocalData}
       />

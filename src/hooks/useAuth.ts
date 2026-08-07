@@ -32,8 +32,9 @@ import { decryptJson, encryptJson, isEncryptedBlob, tryParseJsonObject } from '.
 
 const USERS_KEY = 'savings-system:users'
 const SESSION_KEY = 'savings-system:session'
-const DATA_KEY_SESSION = 'savings-system:data-key'
+const DATA_KEY_PREFIX = 'savings-system:data-key:'
 const LEGACY_DATA_KEY = 'savings-system:data'
+const LEGACY_DATA_KEY_SESSION = 'savings-system:data-key'
 
 function storageDataKey(userId: string) {
   return `savings-system:data:${userId}`
@@ -128,30 +129,52 @@ function saveSession(session: AuthSession | null) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
-function clearStoredDataKey() {
+let pendingDataKey: { userId: string; key: CryptoKey } | null = null
+
+function dataKeyStorageId(userId: string) {
+  return `${DATA_KEY_PREFIX}${userId}`
+}
+
+function clearStoredDataKey(userId?: string) {
   try {
-    sessionStorage.removeItem(DATA_KEY_SESSION)
+    if (userId) localStorage.removeItem(dataKeyStorageId(userId))
+    else {
+      const keysToRemove: string[] = []
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index)
+        if (key && key.startsWith(DATA_KEY_PREFIX)) keysToRemove.push(key)
+      }
+      for (const key of keysToRemove) localStorage.removeItem(key)
+    }
+    sessionStorage.removeItem(LEGACY_DATA_KEY_SESSION)
   } catch {
     // ignore
   }
 }
 
-async function persistDataKey(key: CryptoKey) {
+async function persistDataKey(userId: string, key: CryptoKey) {
   try {
     const raw = await exportDataKeyRaw(key)
-    sessionStorage.setItem(DATA_KEY_SESSION, raw)
+    localStorage.setItem(dataKeyStorageId(userId), raw)
+    sessionStorage.removeItem(LEGACY_DATA_KEY_SESSION)
   } catch {
     // ignore
   }
 }
 
-async function restoreDataKey(): Promise<CryptoKey | null> {
+async function restoreDataKey(userId: string): Promise<CryptoKey | null> {
   try {
-    const raw = sessionStorage.getItem(DATA_KEY_SESSION)
+    const raw =
+      localStorage.getItem(dataKeyStorageId(userId)) ??
+      sessionStorage.getItem(LEGACY_DATA_KEY_SESSION)
     if (!raw) return null
-    return await importDataKeyRaw(raw)
+    const key = await importDataKeyRaw(raw)
+    // Migrate legacy sessionStorage key into durable localStorage.
+    localStorage.setItem(dataKeyStorageId(userId), raw)
+    sessionStorage.removeItem(LEGACY_DATA_KEY_SESSION)
+    return key
   } catch {
-    clearStoredDataKey()
+    clearStoredDataKey(userId)
     return null
   }
 }
@@ -354,13 +377,14 @@ export function useAuth() {
   const [dataCryptoKey, setDataCryptoKey] = useState<CryptoKey | null>(null)
   const [ready, setReady] = useState(false)
 
-  const clearDataKey = useCallback(() => {
-    clearStoredDataKey()
+  const clearDataKey = useCallback((userId?: string) => {
+    clearStoredDataKey(userId)
     setDataCryptoKey(null)
   }, [])
 
-  const setUnlockedKey = useCallback(async (key: CryptoKey) => {
-    await persistDataKey(key)
+  const setUnlockedKey = useCallback(async (userId: string, key: CryptoKey) => {
+    pendingDataKey = { userId, key }
+    await persistDataKey(userId, key)
     setDataCryptoKey(key)
   }, [])
 
@@ -381,19 +405,33 @@ export function useAuth() {
             currentUsers.some((user) => user.id === currentSession.userId))
 
         if (valid && currentSession) {
-          setSession(currentSession)
           if (!currentSession.isGuest && currentSession.userId !== GUEST_USER_ID) {
-            const restored = await restoreDataKey()
-            if (!cancelled) setDataCryptoKey(restored)
+            const restored = await restoreDataKey(currentSession.userId)
+            if (!restored) {
+              // Missing durable key → require login again instead of unlock screen.
+              clearStoredDataKey(currentSession.userId)
+              saveSession(null)
+              if (!cancelled) {
+                setSession(null)
+                setDataCryptoKey(null)
+                setReady(true)
+              }
+              return
+            }
+            if (!cancelled) {
+              setSession(currentSession)
+              setDataCryptoKey(restored)
+            }
           } else {
-            clearStoredDataKey()
-            if (!cancelled) setDataCryptoKey(null)
+            if (!cancelled) {
+              setSession(currentSession)
+              setDataCryptoKey(null)
+            }
           }
         } else {
           ensureGuestDataReady()
           const guestSession: AuthSession = { userId: GUEST_USER_ID, isGuest: true }
           saveSession(guestSession)
-          clearStoredDataKey()
           if (!cancelled) {
             setSession(guestSession)
             setDataCryptoKey(null)
@@ -439,12 +477,43 @@ export function useAuth() {
             firebaseUser.email?.split('@')[0] ||
             '使用者'
 
+          let restored =
+            (await restoreDataKey(firebaseUser.uid)) ??
+            (pendingDataKey?.userId === firebaseUser.uid ? pendingDataKey.key : null)
+
+          // Login may still be writing the durable key; wait briefly before giving up.
+          if (!restored) {
+            for (let attempt = 0; attempt < 30 && !restored; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 50))
+              restored =
+                (await restoreDataKey(firebaseUser.uid)) ??
+                (pendingDataKey?.userId === firebaseUser.uid ? pendingDataKey.key : null)
+            }
+          }
+
+          if (!restored) {
+            // Logged in to Firebase but no local data key → ask user to sign in again.
+            try {
+              await signOut(getFirebaseAuth())
+            } catch {
+              // ignore
+            }
+            clearStoredDataKey(firebaseUser.uid)
+            saveSession(null)
+            if (!cancelled) {
+              setCloudUsername(null)
+              setSession(null)
+              setDataCryptoKey(null)
+              setReady(true)
+            }
+            return
+          }
+          pendingDataKey = null
+
           setCloudUsername(username)
           const nextSession: AuthSession = { userId: firebaseUser.uid, isGuest: false }
           saveSession(nextSession)
           setSession(nextSession)
-
-          const restored = await restoreDataKey()
           if (!cancelled) setDataCryptoKey(restored)
           if (!cancelled) setReady(true)
           return
@@ -457,7 +526,6 @@ export function useAuth() {
           ensureGuestDataReady()
           const guestSession: AuthSession = { userId: GUEST_USER_ID, isGuest: true }
           saveSession(guestSession)
-          clearStoredDataKey()
           if (!cancelled) {
             setSession(guestSession)
             setDataCryptoKey(null)
@@ -466,7 +534,6 @@ export function useAuth() {
           return
         }
 
-        clearStoredDataKey()
         saveSession(null)
         if (!cancelled) {
           setSession(null)
@@ -487,6 +554,8 @@ export function useAuth() {
     if (session.isGuest || session.userId === GUEST_USER_ID) {
       return { id: GUEST_USER_ID, username: '訪客', isGuest: true }
     }
+    // Registered account without data key should not stay "half logged in".
+    if (!dataCryptoKey) return null
     if (isFirebaseConfigured()) {
       return {
         id: session.userId,
@@ -499,14 +568,8 @@ export function useAuth() {
     return { id: user.id, username: user.username, isGuest: false }
   })()
 
-  const needsUnlock = Boolean(currentUser && !currentUser.isGuest && !dataCryptoKey)
-
-  const lock = useCallback(() => {
-    clearDataKey()
-  }, [clearDataKey])
-
   const enterGuest = useCallback(async () => {
-    clearDataKey()
+    clearDataKey(session?.userId)
     if (isFirebaseConfigured()) {
       try {
         await signOut(getFirebaseAuth())
@@ -519,7 +582,7 @@ export function useAuth() {
     saveSession(nextSession)
     setCloudUsername(null)
     setSession(nextSession)
-  }, [clearDataKey])
+  }, [clearDataKey, session?.userId])
 
   const registerCloud = useCallback(
     async (username: string, password: string) => {
@@ -539,7 +602,7 @@ export function useAuth() {
         )
         await updateProfile(credential.user, { displayName: normalized })
         const { cryptoKey } = await ensureCloudProfile(credential.user, normalized, password)
-        await setUnlockedKey(cryptoKey)
+        await setUnlockedKey(credential.user.uid, cryptoKey)
         setCloudUsername(normalized)
         const nextSession: AuthSession = { userId: credential.user.uid, isGuest: false }
         saveSession(nextSession)
@@ -569,7 +632,7 @@ export function useAuth() {
           normalized,
           password,
         )
-        await setUnlockedKey(cryptoKey)
+        await setUnlockedKey(credential.user.uid, cryptoKey)
         setCloudUsername(meta.username)
         const nextSession: AuthSession = { userId: credential.user.uid, isGuest: false }
         saveSession(nextSession)
@@ -623,7 +686,7 @@ export function useAuth() {
       }
 
       const cryptoKey = await deriveDataKey(password, user.dataSalt, user.dataKeyIterations)
-      await setUnlockedKey(cryptoKey)
+      await setUnlockedKey(user.id, cryptoKey)
 
       const nextSession: AuthSession = { userId: user.id }
       saveSession(nextSession)
@@ -651,7 +714,7 @@ export function useAuth() {
         nextUser.dataSalt,
         nextUser.dataKeyIterations,
       )
-      await setUnlockedKey(cryptoKey)
+      await setUnlockedKey(nextUser.id, cryptoKey)
 
       const nextSession: AuthSession = { userId: nextUser.id }
       saveSession(nextSession)
@@ -697,66 +760,8 @@ export function useAuth() {
     [loginCloud, loginLocal, registerCloud],
   )
 
-  const unlock = useCallback(
-    async (password: string) => {
-      if (!session || session.isGuest || session.userId === GUEST_USER_ID) {
-        throw new Error('目前不是需要解鎖的帳號')
-      }
-
-      if (isFirebaseConfigured()) {
-        const meta = loadCloudMeta(session.userId)
-        const cloud = meta ? null : await fetchCloudUserDoc(session.userId)
-        const dataSalt = meta?.dataSalt ?? cloud?.dataSalt
-        const dataKeyIterations =
-          meta?.dataKeyIterations ?? cloud?.dataKeyIterations ?? PBKDF2_ITERATIONS
-        const username = meta?.username ?? cloud?.username ?? cloudUsername
-        if (!dataSalt || !username) throw new Error('找不到帳號資料，請重新登入')
-
-        try {
-          await signInWithEmailAndPassword(
-            getFirebaseAuth(),
-            usernameToEmail(username),
-            password,
-          )
-        } catch {
-          throw new Error('密碼錯誤')
-        }
-
-        if (!meta && cloud) {
-          saveCloudMeta({
-            uid: session.userId,
-            username: cloud.username,
-            dataSalt: cloud.dataSalt,
-            dataKeyIterations: cloud.dataKeyIterations,
-            createdAt: cloud.createdAt,
-          })
-        }
-
-        const cryptoKey = await deriveDataKey(password, dataSalt, dataKeyIterations)
-        await setUnlockedKey(cryptoKey)
-        return
-      }
-
-      const existing = loadUsers()
-      const user = existing.find((item) => item.id === session.userId)
-      if (!user) throw new Error('找不到帳號，請重新登入')
-
-      const ok = await verifyPassword(password, user.salt, user.passwordHash, user.kdfIterations)
-      if (!ok) throw new Error('密碼錯誤')
-
-      const nextUser = await upgradePasswordHashIfNeeded(user, password, existing, setUsers)
-      const cryptoKey = await deriveDataKey(
-        password,
-        nextUser.dataSalt,
-        nextUser.dataKeyIterations,
-      )
-      await setUnlockedKey(cryptoKey)
-    },
-    [session, setUnlockedKey, cloudUsername],
-  )
-
   const logout = useCallback(async () => {
-    clearDataKey()
+    clearDataKey(session?.userId)
     if (isFirebaseConfigured()) {
       try {
         await signOut(getFirebaseAuth())
@@ -767,7 +772,7 @@ export function useAuth() {
     saveSession(null)
     setCloudUsername(null)
     setSession(null)
-  }, [clearDataKey])
+  }, [clearDataKey, session?.userId])
 
   const wipeCurrentUserData = useCallback(async () => {
     if (!currentUser || currentUser.isGuest) return
@@ -781,7 +786,7 @@ export function useAuth() {
         // ignore
       }
     }
-    clearDataKey()
+    clearDataKey(currentUser.id)
     saveSession(null)
     setCloudUsername(null)
     setSession(null)
@@ -813,15 +818,12 @@ export function useAuth() {
     users,
     currentUser,
     dataCryptoKey,
-    needsUnlock,
     cloudEnabled: isFirebaseConfigured(),
     enterGuest: () => {
       void enterGuest()
     },
     register,
     login,
-    unlock,
-    lock,
     logout: () => {
       void logout()
     },

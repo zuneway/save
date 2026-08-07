@@ -36,7 +36,6 @@ interface HomeScreenProps {
   onOpenInstallGuide: () => void
   onOpenUsageGuide: () => void
   onOpenPrivacy: () => void
-  onLock?: () => void
   createProjectOpen: boolean
   onCreateProjectOpenChange: (open: boolean) => void
 }
@@ -99,7 +98,6 @@ export function HomeScreen({
   onOpenInstallGuide,
   onOpenUsageGuide,
   onOpenPrivacy,
-  onLock,
   createProjectOpen,
   onCreateProjectOpenChange,
 }: HomeScreenProps) {
@@ -461,11 +459,6 @@ export function HomeScreen({
           <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
             隱私
           </button>
-          {!isGuest && onLock ? (
-            <button type="button" className="button button-secondary button-compact" onClick={onLock}>
-              鎖定
-            </button>
-          ) : null}
           {isGuest ? (
             <button
               type="button"
