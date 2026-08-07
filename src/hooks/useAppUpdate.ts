@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { APP_VERSION, isNewerAppVersion } from '../config/appVersion'
+import {
+  APP_VERSION,
+  isNewerAppVersion,
+  shouldShowReleaseNotes,
+} from '../config/appVersion'
 
 const CHECK_INTERVAL_MS = 60_000
+
+export type RemoteVersionInfo = {
+  version: string
+  notes: string[]
+}
 
 function versionUrl() {
   const base = import.meta.env.BASE_URL.endsWith('/')
@@ -11,14 +20,25 @@ function versionUrl() {
   return `${base}version.json?t=${Date.now()}`
 }
 
-async function fetchRemoteVersion(): Promise<string | null> {
+function normalizeNotes(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+async function fetchRemoteVersion(): Promise<RemoteVersionInfo | null> {
   try {
     const response = await fetch(versionUrl(), { cache: 'no-store' })
     if (!response.ok) return null
-    const data = (await response.json()) as { version?: unknown }
-    return typeof data.version === 'string' || typeof data.version === 'number'
-      ? String(data.version)
-      : null
+    const data = (await response.json()) as { version?: unknown; notes?: unknown }
+    const version =
+      typeof data.version === 'string' || typeof data.version === 'number'
+        ? String(data.version)
+        : null
+    if (!version) return null
+    return { version, notes: normalizeNotes(data.notes) }
   } catch {
     return null
   }
@@ -27,6 +47,7 @@ async function fetchRemoteVersion(): Promise<string | null> {
 export function useAppUpdate() {
   const [versionMismatch, setVersionMismatch] = useState(false)
   const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
+  const [remoteNotes, setRemoteNotes] = useState<string[]>([])
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -48,8 +69,9 @@ export function useAppUpdate() {
   const checkVersionFile = useCallback(async () => {
     const remote = await fetchRemoteVersion()
     if (!remote) return
-    setRemoteVersion(remote)
-    if (isNewerAppVersion(remote, APP_VERSION)) setVersionMismatch(true)
+    setRemoteVersion(remote.version)
+    setRemoteNotes(remote.notes)
+    if (isNewerAppVersion(remote.version, APP_VERSION)) setVersionMismatch(true)
   }, [])
 
   useEffect(() => {
@@ -76,6 +98,10 @@ export function useAppUpdate() {
   }, [checkVersionFile])
 
   const updateAvailable = needRefresh || versionMismatch
+  const showFeatureNotes =
+    Boolean(remoteVersion) &&
+    shouldShowReleaseNotes(APP_VERSION, remoteVersion ?? APP_VERSION) &&
+    remoteNotes.length > 0
 
   const applyUpdate = useCallback(async () => {
     try {
@@ -91,6 +117,8 @@ export function useAppUpdate() {
     updateAvailable,
     localVersion: APP_VERSION,
     remoteVersion,
+    remoteNotes,
+    showFeatureNotes,
     applyUpdate,
   }
 }

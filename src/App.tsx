@@ -9,7 +9,7 @@ import {
   hasSeenUsageGuide,
   markUsageGuideSeen,
 } from './components/UsageGuide'
-import { UpdatePrompt, VersionBadge } from './components/UpdatePrompt'
+import { UpdatePrompt, VersionBadge, WhatsNewPrompt } from './components/UpdatePrompt'
 import { useAuth } from './hooks/useAuth'
 import { useSavingsProjects } from './hooks/useSavingsProjects'
 import './App.css'
@@ -183,6 +183,7 @@ function App() {
         <p className="auth-loading">載入中…</p>
         <VersionBadge />
         <UpdatePrompt />
+        <WhatsNewPrompt />
       </main>
     )
   }
@@ -226,6 +227,7 @@ function App() {
       />
       <VersionBadge />
       <UpdatePrompt />
+      <WhatsNewPrompt />
     </main>
   )
 }

@@ -32,11 +32,34 @@
   width: min(100%, 400px);
 }
 
-.update-prompt-text {
+.update-prompt-body {
   margin: 0 0 20px;
+}
+
+.update-prompt-text {
+  margin: 0;
   color: #334155;
   line-height: 1.55;
   font-size: 0.98rem;
+}
+
+.update-prompt-hint {
+  margin: 14px 0 0;
+  color: #64748b;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.release-notes-list {
+  margin: 12px 0 0;
+  padding: 0 0 0 1.2em;
+  color: #0f172a;
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.release-notes-list li + li {
+  margin-top: 8px;
 }
 
 .update-prompt-actions {
