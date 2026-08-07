@@ -274,12 +274,14 @@ export function CreatePeriodicPlanModal({
 
             <label className="field">
               <span>開始日期</span>
-              <input
-                type="date"
-                required
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
+              <div className="date-field-shell">
+                <input
+                  type="date"
+                  required
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </div>
             </label>
 
             <fieldset className="field deadline-field">
@@ -360,13 +362,15 @@ export function CreatePeriodicPlanModal({
               ) : null}
 
               {endMode === 'date' ? (
-                <input
-                  type="date"
-                  required
-                  min={startDate}
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                />
+                <div className="date-field-shell">
+                  <input
+                    type="date"
+                    required
+                    min={startDate}
+                    value={endDate}
+                    onChange={(event) => setEndDate(event.target.value)}
+                  />
+                </div>
               ) : null}
 
               {endMode === 'open' ? (

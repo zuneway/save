@@ -1219,6 +1219,11 @@
     padding-left: 16px;
     padding-right: 16px;
   }
+
+  .field input[type='date'],
+  .deadline-field input[type='date'] {
+    font-size: 16px;
+  }
 }
 
 .modal-header {
@@ -1254,6 +1259,8 @@
 .field select,
 .field textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 12px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
@@ -1267,6 +1274,35 @@
 .field textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* iOS/WebKit date fields have a large intrinsic min-width and can spill past the modal. */
+.field input[type='date'],
+.deadline-field input[type='date'] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.field input[type='date']::-webkit-date-and-time-value,
+.deadline-field input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+.field input[type='date']::-webkit-datetime-edit,
+.deadline-field input[type='date']::-webkit-datetime-edit {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.date-field-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .field-hint {
@@ -1295,6 +1331,7 @@
 }
 
 .deadline-option {
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
@@ -1315,11 +1352,11 @@
 }
 
 .plan-toggle {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .plan-toggle-4 {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .quick-chip-row {
