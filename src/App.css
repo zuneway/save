@@ -1613,7 +1613,7 @@
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: color-mix(in srgb, #fff 90%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow: 0 12px 30px var(--shadow);
 }
 
@@ -2002,6 +2002,396 @@
   background: var(--muted);
 }
 
+.legend-item.is-due {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.plan-preview {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.plan-preview strong {
+  color: var(--ink-strong);
+}
+
+.empty-inline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.periodic-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.periodic-plan-card .project-card-footer,
+.project-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.deposit-priority-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--accent-soft);
+  background: var(--accent-wash);
+}
+
+.deposit-priority-bar > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.deposit-priority-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.deposit-priority-bar strong {
+  color: var(--accent-deep);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.deposit-priority-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deposit-priority-bar.is-overdue {
+  border-color: var(--danger-soft);
+  background: var(--danger-soft);
+}
+
+.deposit-priority-bar.is-overdue strong {
+  color: var(--danger-ink);
+}
+
+.periodic-progress-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.periodic-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.periodic-next-callout {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.periodic-next-callout strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.periodic-calendar,
+.periodic-records {
+  display: grid;
+  gap: 12px;
+}
+
+.periodic-calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.periodic-calendar-title {
+  flex: 1;
+  text-align: center;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.periodic-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.periodic-calendar-weekday {
+  padding: 4px 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.periodic-calendar-cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: default;
+}
+
+button.periodic-calendar-cell {
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+button.periodic-calendar-cell:hover,
+button.periodic-calendar-cell:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  border-color: var(--accent-soft);
+}
+
+.periodic-calendar-cell.is-empty {
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+  border: none;
+}
+
+.periodic-calendar-cell.is-idle {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-soft) 70%, transparent);
+}
+
+.periodic-calendar-cell.is-completed {
+  background: var(--success-soft);
+  border-color: var(--success-soft);
+}
+
+.periodic-calendar-cell.is-missed {
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+}
+
+.periodic-calendar-cell.is-due {
+  background: var(--warn-soft);
+  border-color: var(--warn-soft);
+}
+
+.periodic-calendar-cell.is-upcoming {
+  background: var(--accent-wash);
+  border-color: var(--accent-soft);
+}
+
+.periodic-calendar-cell.is-today-marker {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.periodic-calendar-day {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.periodic-calendar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.periodic-calendar-cell.is-completed .periodic-calendar-dot {
+  background: var(--success-bright);
+}
+
+.periodic-calendar-cell.is-missed .periodic-calendar-dot {
+  background: var(--danger);
+}
+
+.periodic-calendar-cell.is-due .periodic-calendar-dot {
+  background: var(--warn);
+}
+
+.periodic-calendar-amount {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.periodic-records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+.periodic-record-cell {
+  display: grid;
+  gap: 4px;
+  min-height: 96px;
+  padding: 12px 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.periodic-record-cell:hover,
+.periodic-record-cell:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  border-color: var(--accent-soft);
+}
+
+.periodic-record-bar {
+  display: block;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.periodic-record-index {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.periodic-record-date {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.periodic-record-status,
+.periodic-record-amount {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.periodic-record-cell.is-completed {
+  background: var(--success-soft);
+  border-color: var(--success-soft);
+}
+
+.periodic-record-cell.is-completed .periodic-record-bar {
+  background: var(--success-bright);
+}
+
+.periodic-record-cell.is-missed {
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+}
+
+.periodic-record-cell.is-missed .periodic-record-bar {
+  background: var(--danger);
+}
+
+.periodic-record-cell.is-due {
+  background: var(--warn-soft);
+  border-color: var(--warn-soft);
+}
+
+.periodic-record-cell.is-due .periodic-record-bar {
+  background: var(--warn);
+}
+
+.periodic-record-cell.is-upcoming .periodic-record-bar {
+  background: var(--muted);
+}
+
+.panel-board.is-reordering {
+  gap: 8px;
+}
+
+.panel-drop-gap {
+  display: grid;
+  place-items: center;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    height 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.panel-drop-gap.is-visible {
+  height: 18px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel-drop-line {
+  display: block;
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.panel-drop-gap.is-active .panel-drop-line {
+  background: var(--accent);
+}
+
 .toggle-field {
   display: flex;
   align-items: center;
@@ -2249,6 +2639,36 @@ body.wish-pool-open .page-header {
 
   .detail-hero-stats {
     width: 100%;
+  }
+
+  .periodic-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .periodic-calendar-cell {
+    min-height: 56px;
+    padding: 4px 2px;
+  }
+
+  .periodic-calendar-amount {
+    font-size: 0.56rem;
+  }
+
+  .periodic-records-grid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+
+  .deposit-priority-bar {
+    align-items: stretch;
+  }
+
+  .deposit-priority-bar .button,
+  .deposit-priority-actions {
+    width: 100%;
+  }
+
+  .deposit-priority-actions .button {
+    flex: 1;
   }
 
   .panel-header {
