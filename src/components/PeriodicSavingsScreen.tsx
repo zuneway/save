@@ -300,6 +300,10 @@ export function PeriodicSavingsScreen({
           onOpenSettings={onOpenSettings}
           onOpenHome={onOpenHome}
           onOpenPeriodic={() => setAccountMenuOpen(false)}
+          onOpenUsageGuide={() => setUsageGuideOpen(true)}
+          onOpenPrivacy={onOpenPrivacy}
+          onLogout={onLogout}
+          onGoToLogin={onGoToLogin}
         />
 
         <div className={`island-wrap ${selectedIds.length > 0 ? 'is-visible' : 'is-hidden'}`}>
@@ -378,33 +382,6 @@ export function PeriodicSavingsScreen({
           <p className="eyebrow">Recurring Savings</p>
           <h1>定期儲蓄系統</h1>
           <p className="subtitle">{homeQuote}</p>
-        </div>
-        <div className="page-header-actions">
-          <button
-            type="button"
-            className="button button-secondary button-compact"
-            onClick={() => setUsageGuideOpen(true)}
-          >
-            使用教學
-          </button>
-          <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
-            隱私
-          </button>
-          {isGuest ? (
-            <button type="button" className="button button-primary button-compact" onClick={onGoToLogin}>
-              登入
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button button-secondary button-compact"
-              onClick={() => {
-                if (window.confirm('確定要登出嗎？')) onLogout()
-              }}
-            >
-              登出
-            </button>
-          )}
         </div>
       </header>
 

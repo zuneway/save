@@ -55,6 +55,7 @@ function AuthenticatedApp({
     updateFolderNote,
     updateFolderName,
     deleteProjects,
+    deleteFolders,
     moveProjectsToFolder,
     reorderFolders,
     toggleTodayComplete,
@@ -262,6 +263,7 @@ function AuthenticatedApp({
           onCreateProject={createProject}
           onCreateFolder={createFolder}
           onDeleteProjects={deleteProjects}
+          onDeleteFolders={deleteFolders}
           onMoveProjectsToFolder={moveProjectsToFolder}
           onReorderFolders={reorderFolders}
           onUpdateProjectNote={updateProjectNote}

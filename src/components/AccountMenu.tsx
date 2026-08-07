@@ -12,6 +12,10 @@ interface AccountMenuProps {
   onOpenSettings: () => void
   onOpenHome: () => void
   onOpenPeriodic: () => void
+  onOpenUsageGuide: () => void
+  onOpenPrivacy: () => void
+  onLogout: () => void
+  onGoToLogin: () => void
 }
 
 export function AccountMenu({
@@ -23,6 +27,10 @@ export function AccountMenu({
   onOpenSettings,
   onOpenHome,
   onOpenPeriodic,
+  onOpenUsageGuide,
+  onOpenPrivacy,
+  onLogout,
+  onGoToLogin,
 }: AccountMenuProps) {
   const titleId = useId()
   const firstItemRef = useRef<HTMLButtonElement>(null)
@@ -121,6 +129,67 @@ export function AccountMenu({
               <small>色調、背景、暱稱與密碼</small>
             </span>
           </button>
+
+          <div className="account-menu-divider" role="separator" />
+
+          <button
+            type="button"
+            className="account-menu-item"
+            onClick={() => {
+              onClose()
+              onOpenUsageGuide()
+            }}
+          >
+            <span className="account-menu-item-text">
+              <strong>使用教學</strong>
+              <small>功能說明與操作指引</small>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="account-menu-item"
+            onClick={() => {
+              onClose()
+              onOpenPrivacy()
+            }}
+          >
+            <span className="account-menu-item-text">
+              <strong>隱私條款</strong>
+              <small>資料保護與使用說明</small>
+            </span>
+          </button>
+
+          {isGuest ? (
+            <button
+              type="button"
+              className="account-menu-item"
+              onClick={() => {
+                onClose()
+                onGoToLogin()
+              }}
+            >
+              <span className="account-menu-item-text">
+                <strong>登入</strong>
+                <small>登入正式帳號以同步資料</small>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="account-menu-item is-danger"
+              onClick={() => {
+                if (!window.confirm('確定要登出嗎？')) return
+                onClose()
+                onLogout()
+              }}
+            >
+              <span className="account-menu-item-text">
+                <strong>登出</strong>
+                <small>結束目前帳號登入狀態</small>
+              </span>
+            </button>
+          )}
         </nav>
       </aside>
     </div>,

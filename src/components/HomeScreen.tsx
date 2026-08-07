@@ -27,6 +27,7 @@ interface HomeScreenProps {
   onCreateProject: (input: CreateProjectInput) => void
   onCreateFolder: (input: CreateFolderInput) => void
   onDeleteProjects: (ids: string[]) => void
+  onDeleteFolders: (ids: string[]) => void
   onMoveProjectsToFolder: (ids: string[], folderId: string | null) => void
   onReorderFolders: (sourceId: string, targetId: string) => void
   onUpdateProjectNote: (projectId: string, note: string) => void
@@ -72,6 +73,7 @@ export function HomeScreen({
   onCreateProject,
   onCreateFolder,
   onDeleteProjects,
+  onDeleteFolders,
   onMoveProjectsToFolder,
   onReorderFolders,
   onUpdateProjectNote,
@@ -373,6 +375,10 @@ export function HomeScreen({
           onOpenSettings={onOpenSettings}
           onOpenHome={() => setAccountMenuOpen(false)}
           onOpenPeriodic={onOpenPeriodic}
+          onOpenUsageGuide={onOpenUsageGuide}
+          onOpenPrivacy={onOpenPrivacy}
+          onLogout={onLogout}
+          onGoToLogin={onGoToLogin}
         />
         <div className={`island-wrap ${hasSelection ? 'is-visible' : 'is-hidden'}`}>
           <button
@@ -463,33 +469,6 @@ export function HomeScreen({
           <p className="eyebrow">Savings Tracker</p>
           <h1>存錢系統</h1>
           <p className="subtitle">{homeQuote}</p>
-        </div>
-        <div className="page-header-actions">
-          <button type="button" className="button button-secondary button-compact" onClick={onOpenUsageGuide}>
-            使用教學
-          </button>
-          <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
-            隱私
-          </button>
-          {isGuest ? (
-            <button
-              type="button"
-              className="button button-primary button-compact"
-              onClick={onGoToLogin}
-            >
-              登入
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="button button-secondary button-compact"
-              onClick={() => {
-                if (window.confirm('確定要登出嗎？')) onLogout()
-              }}
-            >
-              登出
-            </button>
-          )}
         </div>
       </header>
 
@@ -704,6 +683,28 @@ export function HomeScreen({
                                           <strong>
                                             {folder.note ? '編輯備註' : '新增備註'}
                                           </strong>
+                                        </span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="create-menu-item"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setFolderMenuId(null)
+                                          if (
+                                            window.confirm(
+                                              `確定刪除資料夾「${folder.name}」？內含專案會移到未分類。`,
+                                            )
+                                          ) {
+                                            onDeleteFolders([folder.id])
+                                          }
+                                        }}
+                                      >
+                                        <span className="create-menu-icon" aria-hidden="true">
+                                          🗑
+                                        </span>
+                                        <span>
+                                          <strong>刪除資料夾</strong>
                                         </span>
                                       </button>
                                     </div>
