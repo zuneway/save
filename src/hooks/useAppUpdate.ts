@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { APP_VERSION } from '../config/appVersion'
+import { APP_VERSION, isNewerAppVersion } from '../config/appVersion'
 
 const CHECK_INTERVAL_MS = 60_000
 
@@ -49,7 +49,7 @@ export function useAppUpdate() {
     const remote = await fetchRemoteVersion()
     if (!remote) return
     setRemoteVersion(remote)
-    if (remote !== APP_VERSION) setVersionMismatch(true)
+    if (isNewerAppVersion(remote, APP_VERSION)) setVersionMismatch(true)
   }, [])
 
   useEffect(() => {
