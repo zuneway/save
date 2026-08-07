@@ -130,6 +130,25 @@ function saveSession(session: AuthSession | null) {
 }
 
 let pendingDataKey: { userId: string; key: CryptoKey } | null = null
+/** While > 0, login/register is finishing — do not sign out for a missing data key. */
+let authBootstrapDepth = 0
+
+function beginAuthBootstrap() {
+  authBootstrapDepth += 1
+}
+
+function endAuthBootstrap() {
+  authBootstrapDepth = Math.max(0, authBootstrapDepth - 1)
+}
+
+function isAuthEmailInUse(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    String((error as { code: unknown }).code) === 'auth/email-already-in-use'
+  )
+}
 
 function dataKeyStorageId(userId: string) {
   return `${DATA_KEY_PREFIX}${userId}`
@@ -481,9 +500,10 @@ export function useAuth() {
             (await restoreDataKey(firebaseUser.uid)) ??
             (pendingDataKey?.userId === firebaseUser.uid ? pendingDataKey.key : null)
 
-          // Login may still be writing the durable key; wait briefly before giving up.
+          // Login/register may still be writing the durable key; wait before giving up.
           if (!restored) {
-            for (let attempt = 0; attempt < 30 && !restored; attempt += 1) {
+            const maxAttempts = authBootstrapDepth > 0 ? 80 : 30
+            for (let attempt = 0; attempt < maxAttempts && !restored; attempt += 1) {
               await new Promise((resolve) => window.setTimeout(resolve, 50))
               restored =
                 (await restoreDataKey(firebaseUser.uid)) ??
@@ -492,7 +512,9 @@ export function useAuth() {
           }
 
           if (!restored) {
-            // Logged in to Firebase but no local data key → ask user to sign in again.
+            // register/login still owns the flow — let it finish without signing out.
+            if (authBootstrapDepth > 0) return
+
             try {
               await signOut(getFirebaseAuth())
             } catch {
@@ -584,6 +606,18 @@ export function useAuth() {
     setSession(nextSession)
   }, [clearDataKey, session?.userId])
 
+  const completeCloudSession = useCallback(
+    async (firebaseUser: User, username: string, password: string) => {
+      const { cryptoKey, meta } = await ensureCloudProfile(firebaseUser, username, password)
+      await setUnlockedKey(firebaseUser.uid, cryptoKey)
+      setCloudUsername(meta.username)
+      const nextSession: AuthSession = { userId: firebaseUser.uid, isGuest: false }
+      saveSession(nextSession)
+      setSession(nextSession)
+    },
+    [setUnlockedKey],
+  )
+
   const registerCloud = useCallback(
     async (username: string, password: string) => {
       const normalized = normalizeUsername(username)
@@ -593,25 +627,38 @@ export function useAuth() {
         throw new Error('這個帳號名稱不可使用')
       }
 
+      beginAuthBootstrap()
       try {
         const auth = getFirebaseAuth()
-        const credential = await createUserWithEmailAndPassword(
-          auth,
-          usernameToEmail(normalized),
-          password,
-        )
-        await updateProfile(credential.user, { displayName: normalized })
-        const { cryptoKey } = await ensureCloudProfile(credential.user, normalized, password)
-        await setUnlockedKey(credential.user.uid, cryptoKey)
-        setCloudUsername(normalized)
-        const nextSession: AuthSession = { userId: credential.user.uid, isGuest: false }
-        saveSession(nextSession)
-        setSession(nextSession)
-      } catch (error) {
-        throw new Error(mapFirebaseAuthError(error))
+        try {
+          const credential = await createUserWithEmailAndPassword(
+            auth,
+            usernameToEmail(normalized),
+            password,
+          )
+          await updateProfile(credential.user, { displayName: normalized })
+          await completeCloudSession(credential.user, normalized, password)
+        } catch (error) {
+          // First attempt may have created Auth user then failed mid-setup.
+          // Resume with the same password instead of a false "already used".
+          if (!isAuthEmailInUse(error)) throw new Error(mapFirebaseAuthError(error))
+
+          try {
+            const credential = await signInWithEmailAndPassword(
+              auth,
+              usernameToEmail(normalized),
+              password,
+            )
+            await completeCloudSession(credential.user, normalized, password)
+          } catch {
+            throw new Error('這個帳號已被使用')
+          }
+        }
+      } finally {
+        endAuthBootstrap()
       }
     },
-    [setUnlockedKey],
+    [completeCloudSession],
   )
 
   const loginCloud = useCallback(
@@ -620,6 +667,7 @@ export function useAuth() {
       if (!normalized) throw new Error('請輸入帳號')
       validatePassword(password)
 
+      beginAuthBootstrap()
       try {
         const auth = getFirebaseAuth()
         const credential = await signInWithEmailAndPassword(
@@ -627,21 +675,14 @@ export function useAuth() {
           usernameToEmail(normalized),
           password,
         )
-        const { cryptoKey, meta } = await ensureCloudProfile(
-          credential.user,
-          normalized,
-          password,
-        )
-        await setUnlockedKey(credential.user.uid, cryptoKey)
-        setCloudUsername(meta.username)
-        const nextSession: AuthSession = { userId: credential.user.uid, isGuest: false }
-        saveSession(nextSession)
-        setSession(nextSession)
+        await completeCloudSession(credential.user, normalized, password)
       } catch (error) {
         throw new Error(mapFirebaseAuthError(error))
+      } finally {
+        endAuthBootstrap()
       }
     },
-    [setUnlockedKey],
+    [completeCloudSession],
   )
 
   const registerLocal = useCallback(
