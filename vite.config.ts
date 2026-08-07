@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { APP_VERSION } from './src/config/appVersion'
+import { APP_RELEASE_NOTES, APP_VERSION } from './src/config/appVersion'
 
 function emitVersionJson(): Plugin {
   return {
@@ -10,7 +10,11 @@ function emitVersionJson(): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'version.json',
-        source: `${JSON.stringify({ version: APP_VERSION }, null, 2)}\n`,
+        source: `${JSON.stringify(
+          { version: APP_VERSION, notes: APP_RELEASE_NOTES },
+          null,
+          2,
+        )}\n`,
       })
     },
   }
