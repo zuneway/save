@@ -7,6 +7,7 @@ import type {
   SelectionMode,
 } from '../types/savings'
 import { formatDeadlineSummary, getCurrentStageStatus, getRemainingDays } from '../utils/deadline'
+import { pickHomeQuote } from '../utils/homeQuotes'
 import { formatAmount } from '../utils/money'
 import { AccountMenu } from './AccountMenu'
 import { CreateFolderModal } from './CreateFolderModal'
@@ -37,31 +38,14 @@ interface HomeScreenProps {
   onOpenInstallGuide: () => void
   onOpenUsageGuide: () => void
   onOpenPrivacy: () => void
+  onOpenSettings: () => void
+  onOpenPeriodic: () => void
   createProjectOpen: boolean
   onCreateProjectOpenChange: (open: boolean) => void
 }
 
 const DRAG_MIME = 'application/x-savings-project-ids'
 const FOLDER_DRAG_MIME = 'application/x-savings-folder-id'
-
-const HOME_QUOTES = [
-  '我最大的不足，就是餘額不足；我最大的缺點，就是缺點錢',
-  '我的存款乾淨得很徹底，一塵不染，連灰塵都找不到',
-  '我跟財神的關係，大概是對方早就封鎖我了',
-  '以前以為錢可以買到一切，後來發現不行，因為我的錢不夠',
-  '我也不是不想存錢，只是我的錢都有它們自己的想法，想去別人的口袋',
-  '花錢時覺得自己是富豪，看帳單時覺得自己是乞丐',
-  '帳戶裡的餘額就像前任的承諾，少得可憐',
-  '我的口袋很單純，從不搞複雜的數字遊戲',
-  '有人說談錢傷感情，但談感情真的很傷錢',
-  '錢可以用買到快樂，但我買不起快樂',
-  '只要我不看銀行APP，我就永遠不知道自己有多窮',
-  '我不是在花錢，我是在刺激經濟，燃燒自己照亮商家',
-] as const
-
-function pickHomeQuote() {
-  return HOME_QUOTES[Math.floor(Math.random() * HOME_QUOTES.length)]
-}
 
 function getProgress(current: number, target: number) {
   if (target <= 0) return 0
@@ -99,6 +83,8 @@ export function HomeScreen({
   onOpenInstallGuide,
   onOpenUsageGuide,
   onOpenPrivacy,
+  onOpenSettings,
+  onOpenPeriodic,
   createProjectOpen,
   onCreateProjectOpenChange,
 }: HomeScreenProps) {
@@ -381,8 +367,11 @@ export function HomeScreen({
           open={accountMenuOpen}
           username={username}
           isGuest={isGuest}
+          activeSystem="home"
           onClose={() => setAccountMenuOpen(false)}
-          onOpenSettings={onOpenPrivacy}
+          onOpenSettings={onOpenSettings}
+          onOpenHome={() => setAccountMenuOpen(false)}
+          onOpenPeriodic={onOpenPeriodic}
         />
         <div className={`island-wrap ${hasSelection ? 'is-visible' : 'is-hidden'}`}>
           <button
@@ -476,7 +465,7 @@ export function HomeScreen({
         </div>
         <div className="page-header-actions">
           <button type="button" className="button button-secondary button-compact" onClick={onOpenUsageGuide}>
-            功能介紹
+            使用教學
           </button>
           <button type="button" className="button button-secondary button-compact" onClick={onOpenPrivacy}>
             隱私
@@ -531,7 +520,7 @@ export function HomeScreen({
                 建立存錢專案
               </button>
               <button type="button" className="button button-secondary" onClick={onOpenUsageGuide}>
-                功能介紹
+                使用教學
               </button>
             </div>
             <ol className="empty-flow">
@@ -557,7 +546,7 @@ export function HomeScreen({
             <p className="home-tips">
               點擊右上「＋」新增存錢計畫專案 或
               <button type="button" className="home-tips-link" onClick={onOpenUsageGuide}>
-                點擊查看功能介紹
+                點擊查看使用教學
               </button>
             </p>
             <div className="content-stack">

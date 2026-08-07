@@ -2,15 +2,19 @@ import { useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export const USAGE_GUIDE_SEEN_KEY = 'savings-system:usage-guide-seen'
+export const PERIODIC_USAGE_GUIDE_SEEN_KEY = 'savings-system:periodic-usage-guide-seen'
+
+export type UsageGuideVariant = 'savings' | 'periodic'
 
 interface UsageGuideProps {
   open: boolean
+  variant?: UsageGuideVariant
   onClose: () => void
   onStartCreate?: () => void
   onOpenInstallGuide?: () => void
 }
 
-const STEPS = [
+const SAVINGS_STEPS = [
   {
     title: '歡迎使用存錢系統',
     body: '這裡幫你把存錢目標拆成每天可做到的小步驟 一點一點慢慢累積 直到完成目標',
@@ -24,9 +28,9 @@ const STEPS = [
     title: '主畫面怎麼看',
     body: '主畫面集中顯示所有專案與狀態，方便一眼掌握進度。',
     points: [
-      '點擊左上角帳號可開啟選單（一般設定與其他系統）',
+      '點擊左上角帳號可開啟選單（存錢系統、定期儲蓄、一般設定）',
       '專案卡片綠／紅標示該階段是否完成',
-      '右上「＋」新增專案或資料夾；「功能介紹」可隨時重看',
+      '右上「＋」新增專案或資料夾；「使用教學」可隨時重看',
       '右下「願」可許願回饋功能建議',
     ],
   },
@@ -92,6 +96,82 @@ const STEPS = [
   },
 ] as const
 
+const PERIODIC_STEPS = [
+  {
+    title: '歡迎使用定期儲蓄',
+    body: '用固定金額、固定節奏長期累積，適合發薪日轉帳或日常定期存入。',
+    points: [
+      '與「存錢系統」的目標專案分開管理',
+      '建立後自動排出期程，到期提醒你存入',
+      '可選持續進行，或設定期數／目標金額／結束日',
+    ],
+  },
+  {
+    title: '建立定期計畫',
+    body: '點右上「＋」建立一筆定期儲蓄。',
+    points: [
+      '選擇頻率：每日／每周／每月，或自訂每隔幾日／幾周／幾月',
+      '設定每期存入金額與開始日期',
+      '結束方式可選持續進行、固定期數、目標金額或結束日期',
+      '名稱會依頻率與金額自動產生，之後仍可更改；備註為選填',
+    ],
+  },
+  {
+    title: '主畫面怎麼看',
+    body: '列表顯示所有定期計畫與近期待辦。',
+    points: [
+      '上方總覽可見進行中計畫、已存總額與待處理筆數',
+      '右上「＋」可建立計畫或資料夾，拖曳計畫即可整理分類',
+      '選取計畫後，左上「⋯」可搬移資料夾或刪除',
+      '右上「使用教學」可隨時重看本說明',
+    ],
+  },
+  {
+    title: '到期時怎麼存入',
+    body: '進入計畫詳情後，到期當天會把存入操作放在最上面。',
+    points: [
+      '今天到期：最上方可直接「標記已存入」',
+      '有逾期：最上方提示補存；可按「知道了」收起置頂',
+      '也可提早存入未來期，或撤回已標記的存入',
+      '「紀錄」與「期程表」可點選各期進行操作',
+    ],
+  },
+  {
+    title: '詳情頁區塊',
+    body: '詳情頁由多個區塊組成，版面可自己調整。',
+    points: [
+      '進度總覽：已存入、階段／目標進度',
+      '存入操作：今日存入、補存、提早存入',
+      '紀錄：已完成、逾期與即將到來的期數',
+      '期程表可從「＋ 新增區塊」加入；計畫資訊固定可查頻率與金額',
+    ],
+  },
+  {
+    title: '區塊收放與排序',
+    body: '讓常用功能留在最順手的位置。',
+    points: [
+      '點區塊左側「−／＋」可收起或展開',
+      '按住左側「⋮⋮」拖曳調整上下順序',
+      '「＋ 新增區塊」可加回已刪除的區塊',
+      '到期時「存入操作」會暫時排到最前，方便立刻完成',
+    ],
+  },
+  {
+    title: '持續進行與達標慶祝',
+    body: '沒有結束日時，會以階段目標一路往上累積。',
+    points: [
+      '階段目標由 10 萬起，達成後自動推進下一階',
+      '每次跨過階段目標會播放慶祝動畫',
+      '有固定目標金額的計畫，達標時也會慶祝',
+      '可隨時在選單重新命名、編輯備註或刪除計畫',
+    ],
+  },
+] as const
+
+function stepsFor(variant: UsageGuideVariant) {
+  return variant === 'periodic' ? PERIODIC_STEPS : SAVINGS_STEPS
+}
+
 export function markUsageGuideSeen() {
   try {
     localStorage.setItem(USAGE_GUIDE_SEEN_KEY, '1')
@@ -108,36 +188,61 @@ export function hasSeenUsageGuide() {
   }
 }
 
+export function markPeriodicUsageGuideSeen() {
+  try {
+    localStorage.setItem(PERIODIC_USAGE_GUIDE_SEEN_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
+
+export function hasSeenPeriodicUsageGuide() {
+  try {
+    return localStorage.getItem(PERIODIC_USAGE_GUIDE_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export function UsageGuide({
   open,
+  variant = 'savings',
   onClose,
   onStartCreate,
   onOpenInstallGuide,
 }: UsageGuideProps) {
   const titleId = useId()
+  const steps = stepsFor(variant)
   const [step, setStep] = useState(0)
-  const current = STEPS[step]
-  const isLast = step === STEPS.length - 1
+  const current = steps[step]
+  const isLast = step === steps.length - 1
+  const guideTitle = variant === 'periodic' ? '定期儲蓄使用教學' : '使用教學'
+  const finishLabel = variant === 'periodic' ? '開始建立計畫' : '開始建立專案'
+
+  const markSeen = () => {
+    if (variant === 'periodic') markPeriodicUsageGuideSeen()
+    else markUsageGuideSeen()
+  }
 
   useEffect(() => {
     if (open) setStep(0)
-  }, [open])
+  }, [open, variant])
 
   useEffect(() => {
     if (!open) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
-      if (event.key === 'ArrowRight' && step < STEPS.length - 1) setStep((s) => s + 1)
+      if (event.key === 'ArrowRight' && step < steps.length - 1) setStep((s) => s + 1)
       if (event.key === 'ArrowLeft' && step > 0) setStep((s) => s - 1)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose, step])
+  }, [open, onClose, step, steps.length])
 
-  if (!open) return null
+  if (!open || !current) return null
 
   const finish = () => {
-    markUsageGuideSeen()
+    markSeen()
     onClose()
   }
 
@@ -151,7 +256,7 @@ export function UsageGuide({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h2 id={titleId}>功能介紹</h2>
+          <h2 id={titleId}>{guideTitle}</h2>
           <button type="button" className="icon-button" onClick={finish} aria-label="關閉">
             ×
           </button>
@@ -159,7 +264,7 @@ export function UsageGuide({
 
         <div className="usage-guide-body-scroll">
           <div className="usage-guide-progress" aria-hidden="true">
-            {STEPS.map((item, index) => (
+            {steps.map((item, index) => (
               <span
                 key={item.title}
                 className={`usage-guide-dot ${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`}
@@ -168,7 +273,7 @@ export function UsageGuide({
           </div>
 
           <p className="usage-guide-step-label">
-            {step + 1}／{STEPS.length}
+            {step + 1}／{steps.length}
           </p>
           <h3 className="usage-guide-title">{current.title}</h3>
           <p className="usage-guide-body">{current.body}</p>
@@ -178,12 +283,12 @@ export function UsageGuide({
             ))}
           </ul>
 
-          {isLast && onOpenInstallGuide ? (
+          {isLast && variant === 'savings' && onOpenInstallGuide ? (
             <button
               type="button"
               className="button button-secondary usage-guide-extra"
               onClick={() => {
-                markUsageGuideSeen()
+                markSeen()
                 onClose()
                 onOpenInstallGuide()
               }}
@@ -213,12 +318,12 @@ export function UsageGuide({
               type="button"
               className="button button-primary"
               onClick={() => {
-                markUsageGuideSeen()
+                markSeen()
                 onClose()
                 onStartCreate?.()
               }}
             >
-              {onStartCreate ? '開始建立專案' : '完成'}
+              {onStartCreate ? finishLabel : '完成'}
             </button>
           ) : (
             <button

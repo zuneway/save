@@ -1,20 +1,28 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
+export type AppSystemId = 'home' | 'periodic'
+
 interface AccountMenuProps {
   open: boolean
   username: string
   isGuest: boolean
+  activeSystem?: AppSystemId
   onClose: () => void
   onOpenSettings: () => void
+  onOpenHome: () => void
+  onOpenPeriodic: () => void
 }
 
 export function AccountMenu({
   open,
   username,
   isGuest,
+  activeSystem = 'home',
   onClose,
   onOpenSettings,
+  onOpenHome,
+  onOpenPeriodic,
 }: AccountMenuProps) {
   const titleId = useId()
   const firstItemRef = useRef<HTMLButtonElement>(null)
@@ -62,24 +70,34 @@ export function AccountMenu({
           <button
             ref={firstItemRef}
             type="button"
-            className="account-menu-item"
+            className={`account-menu-item ${activeSystem === 'home' ? 'is-active' : ''}`}
             onClick={() => {
               onClose()
-              onOpenSettings()
+              onOpenHome()
             }}
           >
             <span className="account-menu-item-text">
-              <strong>一般設定</strong>
-              <small>暱稱、密碼、資料與隱私</small>
+              <strong>存錢系統</strong>
+              <small>目標導向存錢專案</small>
             </span>
+            {activeSystem === 'home' ? <span className="account-menu-current">使用中</span> : null}
           </button>
 
-          <button type="button" className="account-menu-item is-disabled" disabled>
+          <button
+            type="button"
+            className={`account-menu-item ${activeSystem === 'periodic' ? 'is-active' : ''}`}
+            onClick={() => {
+              onClose()
+              onOpenPeriodic()
+            }}
+          >
             <span className="account-menu-item-text">
               <strong>定期儲蓄系統</strong>
               <small>自動規劃長期儲蓄</small>
             </span>
-            <span className="account-menu-soon">敬請期待</span>
+            {activeSystem === 'periodic' ? (
+              <span className="account-menu-current">使用中</span>
+            ) : null}
           </button>
 
           <button type="button" className="account-menu-item is-disabled" disabled>
@@ -88,6 +106,20 @@ export function AccountMenu({
               <small>記錄日常收支</small>
             </span>
             <span className="account-menu-soon">敬請期待</span>
+          </button>
+
+          <button
+            type="button"
+            className="account-menu-item"
+            onClick={() => {
+              onClose()
+              onOpenSettings()
+            }}
+          >
+            <span className="account-menu-item-text">
+              <strong>一般設定</strong>
+              <small>色調、背景、暱稱與密碼</small>
+            </span>
           </button>
         </nav>
       </aside>

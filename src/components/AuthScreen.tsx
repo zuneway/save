@@ -242,7 +242,7 @@ export function AuthScreen({
 
       <div className="auth-footer-links">
         <button type="button" className="auth-install-link" onClick={onOpenPrivacy}>
-          資料與個資保護說明
+          隱私權條款
         </button>
         <button type="button" className="auth-install-link" onClick={onOpenInstallGuide}>
           如何把網頁加到手機主畫面？

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
+import type { AppSystemId } from './components/AccountMenu'
 import { AuthScreen } from './components/AuthScreen'
 import { HomeScreen } from './components/HomeScreen'
 import { InstallGuide } from './components/InstallGuide'
+import { PeriodicPlanDetailScreen } from './components/PeriodicPlanDetailScreen'
+import { PeriodicSavingsScreen } from './components/PeriodicSavingsScreen'
 import { PrivacyPanel } from './components/PrivacyPanel'
+import { PrivacyPolicyPanel } from './components/PrivacyPolicyPanel'
 import { ProjectDetailScreen } from './components/ProjectDetailScreen'
 import {
   UsageGuide,
@@ -22,6 +26,7 @@ function AuthenticatedApp({
   onLogout,
   onGoToLogin,
   onOpenPrivacy,
+  onOpenSettings,
   onRepairDataAfterPasswordReset,
   onSyncStateChange,
 }: {
@@ -32,6 +37,7 @@ function AuthenticatedApp({
   onLogout: () => void
   onGoToLogin: () => void
   onOpenPrivacy: () => void
+  onOpenSettings: () => void
   onRepairDataAfterPasswordReset?: (oldPassword: string, currentPassword: string) => Promise<void>
   onSyncStateChange?: (state: 'idle' | 'syncing' | 'synced' | 'offline') => void
 }) {
@@ -41,6 +47,7 @@ function AuthenticatedApp({
     syncState,
     folders,
     projects,
+    periodicPlans,
     createProject,
     createFolder,
     updateProjectNote,
@@ -57,11 +64,26 @@ function AuthenticatedApp({
     updateRandomDeposit,
     regenerateRandomPlan,
     updateDetailLayout,
+    createPeriodicPlan,
+    createPeriodicFolder,
+    updatePeriodicFolderName,
+    updatePeriodicFolderNote,
+    deletePeriodicFolders,
+    movePeriodicPlansToFolder,
+    reorderPeriodicFolders,
+    deletePeriodicPlans,
+    updatePeriodicPlanName,
+    updatePeriodicPlanNote,
+    togglePeriodicPeriod,
+    updatePeriodicDetailLayout,
+    periodicFolders,
   } = useSavingsProjects(userId, {
     encrypt: !isGuest,
     dataKey: isGuest ? null : dataCryptoKey,
   })
+  const [activeSystem, setActiveSystem] = useState<AppSystemId>('home')
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [activePeriodicPlanId, setActivePeriodicPlanId] = useState<string | null>(null)
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [usageGuideOpen, setUsageGuideOpen] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -73,6 +95,9 @@ function AuthenticatedApp({
   const activeProject = activeProjectId
     ? projects.find((project) => project.id === activeProjectId) ?? null
     : null
+  const activePeriodicPlan = activePeriodicPlanId
+    ? periodicPlans.find((plan) => plan.id === activePeriodicPlanId) ?? null
+    : null
 
   useEffect(() => {
     onSyncStateChange?.(syncState)
@@ -83,6 +108,12 @@ function AuthenticatedApp({
       setActiveProjectId(null)
     }
   }, [activeProjectId, activeProject])
+
+  useEffect(() => {
+    if (activePeriodicPlanId && !activePeriodicPlan) {
+      setActivePeriodicPlanId(null)
+    }
+  }, [activePeriodicPlanId, activePeriodicPlan])
 
   useEffect(() => {
     if (!storageReady) return
@@ -153,9 +184,60 @@ function AuthenticatedApp({
     )
   }
 
+  const openHome = () => {
+    setActiveSystem('home')
+    setActivePeriodicPlanId(null)
+  }
+
+  const openPeriodic = () => {
+    setActiveSystem('periodic')
+    setActiveProjectId(null)
+  }
+
   return (
     <>
-      {activeProject ? (
+      {activeSystem === 'periodic' ? (
+        activePeriodicPlan ? (
+          <PeriodicPlanDetailScreen
+            plan={activePeriodicPlan}
+            onBack={() => setActivePeriodicPlanId(null)}
+            onTogglePeriod={(date) => togglePeriodicPeriod(activePeriodicPlan.id, date)}
+            onUpdateName={(name) => updatePeriodicPlanName(activePeriodicPlan.id, name)}
+            onUpdateNote={(note) => updatePeriodicPlanNote(activePeriodicPlan.id, note)}
+            onUpdateDetailLayout={(layout) =>
+              updatePeriodicDetailLayout(activePeriodicPlan.id, layout)
+            }
+            onDelete={() => {
+              deletePeriodicPlans([activePeriodicPlan.id])
+              setActivePeriodicPlanId(null)
+            }}
+          />
+        ) : (
+          <PeriodicSavingsScreen
+            username={username}
+            isGuest={isGuest}
+            folders={periodicFolders}
+            plans={periodicPlans}
+            onCreatePlan={(input) => {
+              const plan = createPeriodicPlan(input)
+              if (plan) setActivePeriodicPlanId(plan.id)
+            }}
+            onCreateFolder={createPeriodicFolder}
+            onUpdateFolderName={updatePeriodicFolderName}
+            onUpdateFolderNote={updatePeriodicFolderNote}
+            onDeleteFolders={deletePeriodicFolders}
+            onMovePlansToFolder={movePeriodicPlansToFolder}
+            onReorderFolders={reorderPeriodicFolders}
+            onDeletePlans={deletePeriodicPlans}
+            onOpenPlan={setActivePeriodicPlanId}
+            onOpenHome={openHome}
+            onOpenPrivacy={onOpenPrivacy}
+            onOpenSettings={onOpenSettings}
+            onLogout={onLogout}
+            onGoToLogin={onGoToLogin}
+          />
+        )
+      ) : activeProject ? (
         <ProjectDetailScreen
           project={activeProject}
           onBack={() => setActiveProjectId(null)}
@@ -192,6 +274,8 @@ function AuthenticatedApp({
           onOpenInstallGuide={() => setInstallGuideOpen(true)}
           onOpenUsageGuide={() => setUsageGuideOpen(true)}
           onOpenPrivacy={onOpenPrivacy}
+          onOpenSettings={onOpenSettings}
+          onOpenPeriodic={openPeriodic}
           createProjectOpen={createProjectOpen}
           onCreateProjectOpenChange={setCreateProjectOpen}
         />
@@ -199,12 +283,13 @@ function AuthenticatedApp({
       <InstallGuide open={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
       <UsageGuide
         open={usageGuideOpen}
+        variant="savings"
         onClose={() => {
           markUsageGuideSeen()
           setUsageGuideOpen(false)
         }}
         onStartCreate={
-          activeProject
+          activeProject || activeSystem === 'periodic'
             ? undefined
             : () => {
                 setCreateProjectOpen(true)
@@ -234,7 +319,8 @@ function App() {
     wipeAllLocalData,
   } = useAuth()
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
-  const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'offline'>('idle')
 
   if (!ready) {
@@ -259,7 +345,8 @@ function App() {
           dataCryptoKey={dataCryptoKey}
           onLogout={logout}
           onGoToLogin={logout}
-          onOpenPrivacy={() => setPrivacyOpen(true)}
+          onOpenPrivacy={() => setPrivacyPolicyOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
           onRepairDataAfterPasswordReset={
             currentUser.isGuest ? undefined : repairDataAfterPasswordReset
           }
@@ -273,21 +360,25 @@ function App() {
             onRequestPasswordReset={requestPasswordReset}
             onEnterGuest={enterGuest}
             onOpenInstallGuide={() => setInstallGuideOpen(true)}
-            onOpenPrivacy={() => setPrivacyOpen(true)}
+            onOpenPrivacy={() => setPrivacyPolicyOpen(true)}
           />
           <InstallGuide open={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
         </>
       )}
 
+      <PrivacyPolicyPanel
+        open={privacyPolicyOpen}
+        onClose={() => setPrivacyPolicyOpen(false)}
+      />
       <PrivacyPanel
-        open={privacyOpen}
+        open={settingsOpen}
         signedIn={Boolean(currentUser)}
         isGuest={Boolean(currentUser?.isGuest)}
         username={currentUser?.username ?? '尚未登入'}
         loginUsername={currentUser?.loginUsername}
         recoveryEmail={currentUser?.recoveryEmail}
         syncState={syncState}
-        onClose={() => setPrivacyOpen(false)}
+        onClose={() => setSettingsOpen(false)}
         onUpdateNickname={updateNickname}
         onChangePassword={changePassword}
         onUpdateRecoveryEmail={updateRecoveryEmail}

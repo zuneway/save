@@ -1,8 +1,12 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useBackground } from '../hooks/useBackground'
+import { useTheme } from '../hooks/useTheme'
 import { isFirebaseConfigured } from '../lib/firebase'
 import { PASSWORD_MIN_LENGTH } from '../utils/authCrypto'
+import { BACKGROUND_OPTIONS } from '../utils/background'
 import { isValidRecoveryEmail } from '../utils/cloudAccount'
+import { THEME_OPTIONS } from '../utils/theme'
 
 interface PrivacyPanelProps {
   open: boolean
@@ -38,6 +42,11 @@ export function PrivacyPanel({
   const titleId = useId()
   const cloudEnabled = isFirebaseConfigured()
   const canEditAccount = signedIn && !isGuest
+  const { theme, setTheme } = useTheme()
+  const { background, customPreview, setBackground, uploadBackground } = useBackground()
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
+  const [backgroundBusy, setBackgroundBusy] = useState(false)
+  const [backgroundError, setBackgroundError] = useState<string | null>(null)
 
   const [nickname, setNickname] = useState(username)
   const [nicknameBusy, setNicknameBusy] = useState(false)
@@ -71,6 +80,7 @@ export function PrivacyPanel({
     setRecoveryPassword('')
     setRecoveryMsg(null)
     setRecoveryError(null)
+    setBackgroundError(null)
   }, [open, username, recoveryEmail])
 
   useEffect(() => {
@@ -191,6 +201,130 @@ export function PrivacyPanel({
               <p>登入帳號：{accountLoginName}</p>
             ) : null}
             {syncLabel ? <p>{syncLabel}</p> : null}
+          </section>
+
+          <section className="privacy-section">
+            <h3>更改色調</h3>
+            <p className="field-hint">選擇介面色調；會保存在此裝置。</p>
+            <div className="theme-picker" role="radiogroup" aria-label="介面色調">
+              {THEME_OPTIONS.map((option) => {
+                const selected = theme === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={`theme-option ${selected ? 'is-selected' : ''}`}
+                    onClick={() => setTheme(option.id)}
+                  >
+                    <span className="theme-swatch" aria-hidden="true">
+                      <i style={{ background: option.swatch[0] }} />
+                      <i style={{ background: option.swatch[1] }} />
+                      <i style={{ background: option.swatch[2] }} />
+                    </span>
+                    <span className="theme-option-text">
+                      <strong>{option.label}</strong>
+                      <small>{option.description}</small>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="privacy-section">
+            <h3>背景圖片</h3>
+            <p className="field-hint">選擇內建風景，或上傳自己的圖片；會保存在此裝置。</p>
+            <div className="background-picker" role="radiogroup" aria-label="背景圖片">
+              {BACKGROUND_OPTIONS.map((option) => {
+                const selected = background === option.id
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={`background-option ${selected ? 'is-selected' : ''}`}
+                    onClick={() => {
+                      setBackgroundError(null)
+                      setBackground(option.id)
+                    }}
+                  >
+                    <span
+                      className="background-thumb"
+                      style={{ backgroundImage: option.preview }}
+                      aria-hidden="true"
+                    />
+                    <span className="theme-option-text">
+                      <strong>{option.label}</strong>
+                      <small>{option.description}</small>
+                    </span>
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={background === 'custom'}
+                className={`background-option ${background === 'custom' ? 'is-selected' : ''}`}
+                onClick={() => {
+                  setBackgroundError(null)
+                  if (customPreview) {
+                    setBackground('custom')
+                    return
+                  }
+                  backgroundInputRef.current?.click()
+                }}
+              >
+                <span
+                  className={`background-thumb ${customPreview ? '' : 'is-empty'}`}
+                  style={
+                    customPreview
+                      ? { backgroundImage: `url("${customPreview}")` }
+                      : undefined
+                  }
+                  aria-hidden="true"
+                >
+                  {customPreview ? null : <span>上傳</span>}
+                </span>
+                <span className="theme-option-text">
+                  <strong>自訂圖片</strong>
+                  <small>{customPreview ? '使用已上傳的背景' : '從相簿或檔案選擇圖片'}</small>
+                </span>
+              </button>
+            </div>
+            <div className="background-actions">
+              <input
+                ref={backgroundInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  event.target.value = ''
+                  if (!file) return
+                  setBackgroundError(null)
+                  setBackgroundBusy(true)
+                  void uploadBackground(file)
+                    .catch((error) => {
+                      setBackgroundError(
+                        error instanceof Error ? error.message : '上傳背景失敗',
+                      )
+                    })
+                    .finally(() => setBackgroundBusy(false))
+                }}
+              />
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={backgroundBusy}
+                onClick={() => backgroundInputRef.current?.click()}
+              >
+                {backgroundBusy ? '處理中…' : customPreview ? '更換上傳圖片' : '上傳圖片'}
+              </button>
+            </div>
+            {backgroundError ? <p className="settings-form-error">{backgroundError}</p> : null}
           </section>
 
           <section className="privacy-section">

@@ -1,16 +1,284 @@
+:root,
+[data-theme='warm'] {
+  /* Warm peach — default */
+  --ink: #3b241c;
+  --ink-strong: #2a1812;
+  --ink-soft: #5c4036;
+  --muted: #8a6e63;
+  --muted-soft: #b39688;
+  --line: #f0ddd2;
+  --line-strong: #e4c8b8;
+  --surface: #fffcf9;
+  --surface-soft: #fff8f4;
+  --surface-warm: #f7ede6;
+  --surface-tint: #fff0e8;
+  --accent: #e07a4d;
+  --accent-deep: #c96538;
+  --accent-soft: #ffdcc8;
+  --accent-wash: #fff0e8;
+  --success: #4f8f5c;
+  --success-soft: #e5f3e8;
+  --success-ink: #2f5f3a;
+  --success-bright: #5aa86a;
+  --danger: #d4543c;
+  --danger-soft: #fde8e3;
+  --danger-ink: #8f2f22;
+  --warn: #d4923a;
+  --warn-soft: #fff1dc;
+  --island: #4a3028;
+  --island-strong: #3b241c;
+  --island-fg: #fff8f4;
+  --island-glass: rgba(74, 48, 40, 0.88);
+  --island-glass-strong: rgba(74, 48, 40, 0.95);
+  --scrim: rgba(74, 48, 40, 0.42);
+  --scrim-strong: rgba(74, 48, 40, 0.45);
+  --shadow: rgba(74, 48, 40, 0.14);
+  --shadow-strong: rgba(74, 48, 40, 0.22);
+  --panel-top: #fffcf9;
+  --panel-bottom: #fff8f4;
+  --menu-bg: rgba(255, 255, 255, 0.96);
+  --field-bg: #fff;
+  --chip-muted: rgba(255, 248, 244, 0.18);
+  --page-spot-1: rgba(255, 196, 168, 0.55);
+  --page-spot-2: rgba(255, 214, 186, 0.45);
+  --page-spot-3: rgba(255, 228, 210, 0.55);
+  --page-base-top: #fff6f0;
+  --page-base-mid: #ffe8dc;
+  --page-base-bottom: #fff3ea;
+  --progress-mid: #f0b090;
+  --today-row: #fff7ed;
+}
+
+[data-theme='cool'] {
+  --ink: #0f2744;
+  --ink-strong: #0b1c33;
+  --ink-soft: #334e68;
+  --muted: #5b738b;
+  --muted-soft: #8aa0b5;
+  --line: #d7e6f3;
+  --line-strong: #b9d0e4;
+  --surface: #f8fcff;
+  --surface-soft: #f1f8fe;
+  --surface-warm: #e8f2fb;
+  --surface-tint: #e0f2fe;
+  --accent: #0284c7;
+  --accent-deep: #0369a1;
+  --accent-soft: #bae6fd;
+  --accent-wash: #e0f2fe;
+  --success: #0f766e;
+  --success-soft: #ccfbf1;
+  --success-ink: #115e59;
+  --success-bright: #14b8a6;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-ink: #991b1b;
+  --warn: #d97706;
+  --warn-soft: #fef3c7;
+  --island: #16324f;
+  --island-strong: #0f2744;
+  --island-fg: #f0f9ff;
+  --island-glass: rgba(22, 50, 79, 0.9);
+  --island-glass-strong: rgba(15, 39, 68, 0.96);
+  --scrim: rgba(15, 39, 68, 0.42);
+  --scrim-strong: rgba(15, 39, 68, 0.48);
+  --shadow: rgba(15, 39, 68, 0.12);
+  --shadow-strong: rgba(15, 39, 68, 0.2);
+  --panel-top: #f8fcff;
+  --panel-bottom: #eef7fd;
+  --menu-bg: rgba(255, 255, 255, 0.96);
+  --field-bg: #fff;
+  --chip-muted: rgba(240, 249, 255, 0.2);
+  --page-spot-1: rgba(125, 211, 252, 0.45);
+  --page-spot-2: rgba(186, 230, 253, 0.5);
+  --page-spot-3: rgba(224, 242, 254, 0.65);
+  --page-base-top: #f0f9ff;
+  --page-base-mid: #e0f2fe;
+  --page-base-bottom: #f8fcff;
+  --progress-mid: #7dd3fc;
+  --today-row: #eff6ff;
+}
+
+[data-theme='mint'] {
+  --ink: #134e4a;
+  --ink-strong: #0f3d3a;
+  --ink-soft: #2f6b66;
+  --muted: #5f8a84;
+  --muted-soft: #8fb4ae;
+  --line: #d5ebe6;
+  --line-strong: #b7d8d1;
+  --surface: #f7fffc;
+  --surface-soft: #f0faf6;
+  --surface-warm: #e6f5ef;
+  --surface-tint: #d1fae5;
+  --accent: #0f766e;
+  --accent-deep: #0d9488;
+  --accent-soft: #99f6e4;
+  --accent-wash: #ccfbf1;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --success-ink: #166534;
+  --success-bright: #22c55e;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-ink: #991b1b;
+  --warn: #ca8a04;
+  --warn-soft: #fef9c3;
+  --island: #115e59;
+  --island-strong: #134e4a;
+  --island-fg: #f0fdfa;
+  --island-glass: rgba(17, 94, 89, 0.9);
+  --island-glass-strong: rgba(19, 78, 74, 0.96);
+  --scrim: rgba(19, 78, 74, 0.4);
+  --scrim-strong: rgba(19, 78, 74, 0.48);
+  --shadow: rgba(19, 78, 74, 0.12);
+  --shadow-strong: rgba(19, 78, 74, 0.2);
+  --panel-top: #f7fffc;
+  --panel-bottom: #eefaf5;
+  --menu-bg: rgba(255, 255, 255, 0.96);
+  --field-bg: #fff;
+  --chip-muted: rgba(240, 253, 250, 0.2);
+  --page-spot-1: rgba(94, 234, 212, 0.4);
+  --page-spot-2: rgba(167, 243, 208, 0.45);
+  --page-spot-3: rgba(204, 251, 241, 0.55);
+  --page-base-top: #f0fdfa;
+  --page-base-mid: #ccfbf1;
+  --page-base-bottom: #f7fffc;
+  --progress-mid: #5eead4;
+  --today-row: #ecfdf5;
+}
+
+[data-theme='dusk'] {
+  --ink: #312e81;
+  --ink-strong: #1e1b4b;
+  --ink-soft: #4c1d95;
+  --muted: #6d68a8;
+  --muted-soft: #9b95c9;
+  --line: #e4e0f7;
+  --line-strong: #cdc6ef;
+  --surface: #fcfbff;
+  --surface-soft: #f5f3ff;
+  --surface-warm: #ede9fe;
+  --surface-tint: #ddd6fe;
+  --accent: #7c3aed;
+  --accent-deep: #6d28d9;
+  --accent-soft: #ddd6fe;
+  --accent-wash: #ede9fe;
+  --success: #059669;
+  --success-soft: #d1fae5;
+  --success-ink: #065f46;
+  --success-bright: #10b981;
+  --danger: #e11d48;
+  --danger-soft: #ffe4e6;
+  --danger-ink: #9f1239;
+  --warn: #d97706;
+  --warn-soft: #fef3c7;
+  --island: #3730a3;
+  --island-strong: #312e81;
+  --island-fg: #f5f3ff;
+  --island-glass: rgba(55, 48, 163, 0.9);
+  --island-glass-strong: rgba(49, 46, 129, 0.96);
+  --scrim: rgba(49, 46, 129, 0.42);
+  --scrim-strong: rgba(49, 46, 129, 0.48);
+  --shadow: rgba(49, 46, 129, 0.14);
+  --shadow-strong: rgba(49, 46, 129, 0.22);
+  --panel-top: #fcfbff;
+  --panel-bottom: #f5f3ff;
+  --menu-bg: rgba(255, 255, 255, 0.96);
+  --field-bg: #fff;
+  --chip-muted: rgba(245, 243, 255, 0.22);
+  --page-spot-1: rgba(196, 181, 253, 0.45);
+  --page-spot-2: rgba(221, 214, 254, 0.5);
+  --page-spot-3: rgba(237, 233, 254, 0.6);
+  --page-base-top: #f5f3ff;
+  --page-base-mid: #ede9fe;
+  --page-base-bottom: #fcfbff;
+  --progress-mid: #c4b5fd;
+  --today-row: #f5f3ff;
+}
+
+[data-theme='midnight'] {
+  --ink: #e2e8f0;
+  --ink-strong: #f8fafc;
+  --ink-soft: #cbd5e1;
+  --muted: #94a3b8;
+  --muted-soft: #64748b;
+  --line: #334155;
+  --line-strong: #475569;
+  --surface: #1e293b;
+  --surface-soft: #243247;
+  --surface-warm: #162032;
+  --surface-tint: #1e3a5f;
+  --accent: #38bdf8;
+  --accent-deep: #0ea5e9;
+  --accent-soft: #075985;
+  --accent-wash: #0c4a6e;
+  --success: #34d399;
+  --success-soft: #064e3b;
+  --success-ink: #a7f3d0;
+  --success-bright: #6ee7b7;
+  --danger: #fb7185;
+  --danger-soft: #4c0519;
+  --danger-ink: #fecdd3;
+  --warn: #fbbf24;
+  --warn-soft: #451a03;
+  --island: #0f172a;
+  --island-strong: #020617;
+  --island-fg: #e2e8f0;
+  --island-glass: rgba(15, 23, 42, 0.92);
+  --island-glass-strong: rgba(2, 6, 23, 0.96);
+  --scrim: rgba(2, 6, 23, 0.62);
+  --scrim-strong: rgba(2, 6, 23, 0.7);
+  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow-strong: rgba(0, 0, 0, 0.5);
+  --panel-top: #1e293b;
+  --panel-bottom: #162032;
+  --menu-bg: rgba(30, 41, 59, 0.96);
+  --field-bg: #0f172a;
+  --chip-muted: rgba(226, 232, 240, 0.12);
+  --page-spot-1: rgba(56, 189, 248, 0.12);
+  --page-spot-2: rgba(99, 102, 241, 0.12);
+  --page-spot-3: rgba(14, 165, 233, 0.1);
+  --page-base-top: #0b1220;
+  --page-base-mid: #0f172a;
+  --page-base-bottom: #111827;
+  --progress-mid: #38bdf8;
+  --today-row: #1e3a5f;
+}
+
 :root {
-  font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --page-bg-image: none;
+  --page-bg-overlay: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--page-base-top) 78%, transparent) 0%,
+    color-mix(in srgb, var(--page-base-mid) 62%, transparent) 48%,
+    color-mix(in srgb, var(--page-base-bottom) 72%, transparent) 100%
+  );
+
+  font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
-  background:
-    radial-gradient(circle at top left, #dbeafe 0%, transparent 28%),
-    radial-gradient(circle at bottom right, #dcfce7 0%, transparent 24%),
-    #f8fafc;
+  color: var(--ink);
+  background-color: var(--page-base-mid);
+  background-image:
+    radial-gradient(circle at 12% 0%, var(--page-spot-1) 0%, transparent 34%),
+    radial-gradient(circle at 90% 18%, var(--page-spot-2) 0%, transparent 30%),
+    radial-gradient(circle at 50% 100%, var(--page-spot-3) 0%, transparent 36%),
+    linear-gradient(180deg, var(--page-base-top) 0%, var(--page-base-mid) 48%, var(--page-base-bottom) 100%);
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-bg]:not([data-bg='none']) {
+  background-image:
+    var(--page-bg-overlay),
+    radial-gradient(circle at 12% 0%, var(--page-spot-1) 0%, transparent 34%),
+    var(--page-bg-image);
 }
 
 * {
@@ -28,6 +296,8 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overscroll-behavior-y: none;
+  background: transparent;
+  color: inherit;
 }
 
 button,
@@ -36,6 +306,7 @@ select,
 textarea {
   font: inherit;
   touch-action: manipulation;
+  color: inherit;
 }
 
 #root {

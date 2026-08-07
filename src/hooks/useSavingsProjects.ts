@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
+  CreatePeriodicPlanInput,
+  PeriodicDetailPanelId,
+  PeriodicEndRule,
+  PeriodicFrequency,
+  PeriodicIntervalUnit,
+  PeriodicPlan,
+} from '../types/periodic'
+import {
+  ALL_PERIODIC_DETAIL_PANEL_IDS,
+  DEFAULT_PERIODIC_DETAIL_LAYOUT,
+} from '../types/periodic'
+import type {
   AddEntryInput,
   CreateFolderInput,
   CreateProjectInput,
@@ -21,6 +33,11 @@ import {
   getTodayDateInputValue,
   regenerateFuturePlans,
 } from '../utils/deadline'
+import {
+  defaultPeriodicPlanName,
+  isValidPeriodicStartDate,
+  resolvePeriodicInterval,
+} from '../utils/periodic'
 import { insertByName, sortByName } from '../utils/sortByName'
 import {
   decryptJson,
@@ -63,13 +80,21 @@ function storageKey(userId: string) {
 interface SavingsData {
   folders: ProjectFolder[]
   projects: SavingsProject[]
+  periodicFolders: ProjectFolder[]
+  periodicPlans: PeriodicPlan[]
   updatedAt?: number
+}
+
+function emptySavingsData(updatedAt = 0): SavingsData {
+  return { folders: [], projects: [], periodicFolders: [], periodicPlans: [], updatedAt }
 }
 
 function withUpdatedAt(data: SavingsData): SavingsData {
   return {
     folders: data.folders,
     projects: data.projects,
+    periodicFolders: data.periodicFolders,
+    periodicPlans: data.periodicPlans,
     updatedAt: Date.now(),
   }
 }
@@ -271,21 +296,157 @@ function normalizeFolder(raw: unknown): ProjectFolder | null {
   }
 }
 
-function parseSavingsData(raw: string | null): SavingsData {
-  if (!raw) return { folders: [], projects: [], updatedAt: 0 }
-  try {
-    const parsed = JSON.parse(raw) as Partial<SavingsData>
-    return {
-      folders: Array.isArray(parsed.folders)
-        ? parsed.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
-        : [],
-      projects: Array.isArray(parsed.projects)
-        ? parsed.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
-        : [],
-      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : 0,
+function putPlanInfoLast(layout: PeriodicDetailPanelId[]): PeriodicDetailPanelId[] {
+  if (!layout.includes('planInfo')) return layout
+  return [...layout.filter((id) => id !== 'planInfo'), 'planInfo']
+}
+
+function normalizePeriodicDetailLayout(raw: unknown): PeriodicDetailPanelId[] {
+  const valid = new Set<string>(ALL_PERIODIC_DETAIL_PANEL_IDS)
+  if (!Array.isArray(raw)) return [...DEFAULT_PERIODIC_DETAIL_LAYOUT]
+
+  const unique: PeriodicDetailPanelId[] = []
+  for (const item of raw) {
+    if (
+      typeof item === 'string' &&
+      valid.has(item) &&
+      !unique.includes(item as PeriodicDetailPanelId)
+    ) {
+      unique.push(item as PeriodicDetailPanelId)
     }
+  }
+  return putPlanInfoLast(unique.length > 0 ? unique : [...DEFAULT_PERIODIC_DETAIL_LAYOUT])
+}
+
+function normalizeEndRule(raw: unknown): PeriodicEndRule {
+  if (typeof raw !== 'object' || raw === null) return { type: 'open' }
+  const rule = raw as Partial<PeriodicEndRule> & { type?: string }
+  if (rule.type === 'periods' && typeof (rule as { periods?: unknown }).periods === 'number') {
+    const periods = Math.floor((rule as { periods: number }).periods)
+    if (periods >= 1) return { type: 'periods', periods }
+  }
+  if (
+    rule.type === 'target' &&
+    typeof (rule as { targetAmount?: unknown }).targetAmount === 'number'
+  ) {
+    const targetAmount = Math.floor((rule as { targetAmount: number }).targetAmount)
+    if (targetAmount >= 1) return { type: 'target', targetAmount }
+  }
+  if (rule.type === 'date' && typeof (rule as { date?: unknown }).date === 'string') {
+    const date = (rule as { date: string }).date
+    if (isValidPeriodicStartDate(date)) return { type: 'date', date }
+  }
+  return { type: 'open' }
+}
+
+function normalizePeriodicPlan(raw: unknown): PeriodicPlan | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const plan = raw as Partial<PeriodicPlan>
+  if (!plan.id || !plan.name || plan.amount == null || !plan.startDate) return null
+  if (!isValidPeriodicStartDate(plan.startDate)) return null
+  const amount = Math.floor(plan.amount)
+  if (amount < 1) return null
+
+  // Legacy "biweekly" → custom every 2 weeks.
+  const legacy = raw as {
+    frequency?: string
+    intervalDays?: number
+    intervalCount?: number
+    intervalUnit?: string
+  }
+  const rawFrequency = typeof legacy.frequency === 'string' ? legacy.frequency : ''
+  const isBiweeklyLegacy = rawFrequency === 'biweekly'
+  const frequency: PeriodicFrequency =
+    rawFrequency === 'daily' ||
+    rawFrequency === 'weekly' ||
+    rawFrequency === 'monthly' ||
+    rawFrequency === 'custom'
+      ? rawFrequency
+      : isBiweeklyLegacy
+        ? 'custom'
+        : 'monthly'
+
+  let storedCount: number | undefined
+  let storedUnit: PeriodicIntervalUnit | undefined
+
+  if (typeof plan.intervalCount === 'number' && plan.intervalCount >= 1) {
+    storedCount = Math.floor(plan.intervalCount)
+  } else if (typeof legacy.intervalDays === 'number' && legacy.intervalDays >= 1) {
+    // Old field stored day-count only.
+    storedCount = Math.floor(legacy.intervalDays)
+    storedUnit = 'days'
+  } else if (isBiweeklyLegacy) {
+    storedCount = 2
+    storedUnit = 'weeks'
+  }
+
+  if (
+    plan.intervalUnit === 'days' ||
+    plan.intervalUnit === 'weeks' ||
+    plan.intervalUnit === 'months'
+  ) {
+    storedUnit = plan.intervalUnit
+  }
+
+  const { intervalCount, intervalUnit } = resolvePeriodicInterval(
+    frequency,
+    storedCount,
+    storedUnit,
+  )
+
+  const note =
+    typeof plan.note === 'string' && plan.note.trim() ? plan.note.trim() : undefined
+
+  const completedDates = Array.isArray(plan.completedDates)
+    ? plan.completedDates.filter((date): date is string => typeof date === 'string')
+    : []
+
+  const folderId =
+    typeof plan.folderId === 'string' && plan.folderId.trim() ? plan.folderId.trim() : null
+
+  return {
+    id: plan.id,
+    name: plan.name,
+    note,
+    folderId,
+    amount,
+    frequency,
+    intervalCount,
+    intervalUnit,
+    startDate: plan.startDate,
+    endRule: normalizeEndRule(plan.endRule),
+    completedDates,
+    detailLayout: normalizePeriodicDetailLayout(plan.detailLayout),
+    createdAt: plan.createdAt ?? new Date().toISOString(),
+  }
+}
+
+function fromPartialSavingsData(parsed: Partial<SavingsData> | null | undefined): SavingsData {
+  return {
+    folders: Array.isArray(parsed?.folders)
+      ? parsed.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
+      : [],
+    projects: Array.isArray(parsed?.projects)
+      ? parsed.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
+      : [],
+    periodicFolders: Array.isArray(parsed?.periodicFolders)
+      ? parsed.periodicFolders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
+      : [],
+    periodicPlans: Array.isArray(parsed?.periodicPlans)
+      ? parsed.periodicPlans
+          .map(normalizePeriodicPlan)
+          .filter((plan): plan is PeriodicPlan => plan !== null)
+      : [],
+    updatedAt: typeof parsed?.updatedAt === 'number' ? parsed.updatedAt : 0,
+  }
+}
+
+function parseSavingsData(raw: string | null): SavingsData {
+  if (!raw) return emptySavingsData()
+  try {
+    return fromPartialSavingsData(JSON.parse(raw) as Partial<SavingsData>)
   } catch {
-    return { folders: [], projects: [], updatedAt: 0 }
+    return emptySavingsData()
   }
 }
 
@@ -307,15 +468,7 @@ async function loadData(
       if (object && isEncryptedBlob(object)) {
         if (!options.dataKey) throw new Error('需要密碼才能讀取加密資料')
         const decrypted = await decryptJson<Partial<SavingsData>>(options.dataKey, keyed)
-        return {
-          folders: Array.isArray(decrypted.folders)
-            ? decrypted.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
-            : [],
-          projects: Array.isArray(decrypted.projects)
-            ? decrypted.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
-            : [],
-          updatedAt: typeof decrypted.updatedAt === 'number' ? decrypted.updatedAt : 0,
-        }
+        return fromPartialSavingsData(decrypted)
       }
 
       const plain = parsePlainSavingsRaw(keyed)
@@ -330,17 +483,17 @@ async function loadData(
     }
 
     const legacy = localStorage.getItem('savings-system:projects')
-    if (!legacy) return { folders: [], projects: [], updatedAt: 0 }
+    if (!legacy) return emptySavingsData()
 
     const parsed = JSON.parse(legacy) as unknown[]
     const projects = Array.isArray(parsed)
       ? parsed.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
       : []
 
-    return { folders: [], projects, updatedAt: 0 }
+    return { folders: [], projects, periodicFolders: [], periodicPlans: [], updatedAt: 0 }
   } catch (error) {
     if (options.encrypt) throw error
-    return { folders: [], projects: [], updatedAt: 0 }
+    return emptySavingsData()
   }
 }
 
@@ -353,15 +506,7 @@ async function decodePayload(
     if (!options.dataKey) return null
     try {
       const decrypted = await decryptJson<Partial<SavingsData>>(options.dataKey, payload)
-      return {
-        folders: Array.isArray(decrypted.folders)
-          ? decrypted.folders.map(normalizeFolder).filter((f): f is ProjectFolder => f !== null)
-          : [],
-        projects: Array.isArray(decrypted.projects)
-          ? decrypted.projects.map(normalizeProject).filter((p): p is SavingsProject => p !== null)
-          : [],
-        updatedAt: typeof decrypted.updatedAt === 'number' ? decrypted.updatedAt : 0,
-      }
+      return fromPartialSavingsData(decrypted)
     } catch {
       return null
     }
@@ -377,6 +522,8 @@ async function saveData(
   const stamped = {
     folders: data.folders,
     projects: data.projects,
+    periodicFolders: data.periodicFolders,
+    periodicPlans: data.periodicPlans,
     updatedAt: readUpdatedAt(data) || Date.now(),
   }
 
@@ -463,7 +610,7 @@ export function useSavingsProjects(
 ) {
   const encrypt = options.encrypt
   const dataKey = options.dataKey
-  const [data, setData] = useState<SavingsData>({ folders: [], projects: [], updatedAt: 0 })
+  const [data, setData] = useState<SavingsData>(emptySavingsData())
   const [storageReady, setStorageReady] = useState(false)
   const [storageError, setStorageError] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'offline'>('idle')
@@ -484,7 +631,7 @@ export function useSavingsProjects(
         setSyncState(encrypt && isFirebaseConfigured() ? 'synced' : 'idle')
       } catch (error) {
         if (cancelled) return
-        setData({ folders: [], projects: [], updatedAt: 0 })
+        setData(emptySavingsData())
         setStorageError(error instanceof Error ? error.message : '無法讀取加密資料')
         setStorageReady(false)
       }
@@ -677,6 +824,7 @@ export function useSavingsProjects(
     if (ids.length === 0) return
     const idSet = new Set(ids)
     setDataStamped((prev) => ({
+      ...prev,
       folders: prev.folders.filter((folder) => !idSet.has(folder.id)),
       projects: prev.projects.map((project) =>
         project.folderId && idSet.has(project.folderId)
@@ -971,12 +1119,201 @@ export function useSavingsProjects(
     )
   }, [])
 
+  const createPeriodicPlan = useCallback((input: CreatePeriodicPlanInput) => {
+    const amount = Math.floor(input.amount)
+    if (amount < 1 || !isValidPeriodicStartDate(input.startDate)) return null
+
+    const resolved = resolvePeriodicInterval(
+      input.frequency,
+      input.intervalCount,
+      input.intervalUnit,
+    )
+    const name =
+      input.name?.trim() ||
+      defaultPeriodicPlanName(
+        input.frequency,
+        amount,
+        resolved.intervalCount,
+        resolved.intervalUnit,
+      )
+    const requestedFolderId =
+      typeof input.folderId === 'string' && input.folderId.trim()
+        ? input.folderId.trim()
+        : null
+
+    const plan: PeriodicPlan = {
+      id: crypto.randomUUID(),
+      name,
+      note: input.note?.trim() || undefined,
+      folderId: requestedFolderId,
+      amount,
+      frequency: input.frequency,
+      intervalCount: resolved.intervalCount,
+      intervalUnit: resolved.intervalUnit,
+      startDate: input.startDate,
+      endRule: normalizeEndRule(input.endRule),
+      completedDates: [],
+      detailLayout: [...DEFAULT_PERIODIC_DETAIL_LAYOUT],
+      createdAt: new Date().toISOString(),
+    }
+
+    setDataStamped((prev) => {
+      const folderId =
+        plan.folderId && prev.periodicFolders.some((folder) => folder.id === plan.folderId)
+          ? plan.folderId
+          : null
+      const nextPlan = folderId === plan.folderId ? plan : { ...plan, folderId }
+      return {
+        ...prev,
+        periodicPlans: sortByName([nextPlan, ...prev.periodicPlans]),
+      }
+    })
+    return plan
+  }, [])
+
+  const createPeriodicFolder = useCallback((input: CreateFolderInput) => {
+    const note = input.note?.trim() || undefined
+    const folder: ProjectFolder = {
+      id: crypto.randomUUID(),
+      name: input.name.trim(),
+      note,
+      createdAt: new Date().toISOString(),
+    }
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicFolders: insertByName(prev.periodicFolders, folder),
+    }))
+    return folder
+  }, [])
+
+  const updatePeriodicFolderNote = useCallback((folderId: string, note: string) => {
+    const nextNote = note.trim() || undefined
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicFolders: prev.periodicFolders.map((folder) =>
+        folder.id === folderId ? { ...folder, note: nextNote } : folder,
+      ),
+    }))
+  }, [])
+
+  const updatePeriodicFolderName = useCallback((folderId: string, name: string) => {
+    const nextName = name.trim()
+    if (!nextName) return
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicFolders: prev.periodicFolders.map((folder) =>
+        folder.id === folderId ? { ...folder, name: nextName } : folder,
+      ),
+    }))
+  }, [])
+
+  const deletePeriodicFolders = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicFolders: prev.periodicFolders.filter((folder) => !idSet.has(folder.id)),
+      periodicPlans: prev.periodicPlans.map((plan) =>
+        plan.folderId && idSet.has(plan.folderId) ? { ...plan, folderId: null } : plan,
+      ),
+    }))
+  }, [])
+
+  const movePeriodicPlansToFolder = useCallback((ids: string[], folderId: string | null) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicPlans: prev.periodicPlans.map((plan) =>
+        idSet.has(plan.id) ? { ...plan, folderId } : plan,
+      ),
+    }))
+  }, [])
+
+  const reorderPeriodicFolders = useCallback((sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return
+    setDataStamped((prev) => {
+      const from = prev.periodicFolders.findIndex((folder) => folder.id === sourceId)
+      const to = prev.periodicFolders.findIndex((folder) => folder.id === targetId)
+      if (from < 0 || to < 0) return prev
+      const next = [...prev.periodicFolders]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return { ...prev, periodicFolders: next }
+    })
+  }, [])
+
+  const deletePeriodicPlans = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicPlans: prev.periodicPlans.filter((plan) => !idSet.has(plan.id)),
+    }))
+  }, [])
+
+  const updatePeriodicPlanName = useCallback((planId: string, name: string) => {
+    const nextName = name.trim()
+    if (!nextName) return
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicPlans: sortByName(
+        prev.periodicPlans.map((plan) =>
+          plan.id === planId ? { ...plan, name: nextName } : plan,
+        ),
+      ),
+    }))
+  }, [])
+
+  const updatePeriodicPlanNote = useCallback((planId: string, note: string) => {
+    const nextNote = note.trim() || undefined
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicPlans: prev.periodicPlans.map((plan) =>
+        plan.id === planId ? { ...plan, note: nextNote } : plan,
+      ),
+    }))
+  }, [])
+
+  const togglePeriodicPeriod = useCallback((planId: string, date: string) => {
+    if (!isValidPeriodicStartDate(date)) return
+    setDataStamped((prev) => ({
+      ...prev,
+      periodicPlans: prev.periodicPlans.map((plan) => {
+        if (plan.id !== planId) return plan
+        const exists = plan.completedDates.includes(date)
+        return {
+          ...plan,
+          completedDates: exists
+            ? plan.completedDates.filter((item) => item !== date)
+            : [...plan.completedDates, date].sort(),
+        }
+      }),
+    }))
+  }, [])
+
+  const updatePeriodicDetailLayout = useCallback(
+    (planId: string, layout: PeriodicDetailPanelId[]) => {
+      setDataStamped((prev) => ({
+        ...prev,
+        periodicPlans: prev.periodicPlans.map((plan) =>
+          plan.id === planId
+            ? { ...plan, detailLayout: normalizePeriodicDetailLayout(layout) }
+            : plan,
+        ),
+      }))
+    },
+    [],
+  )
+
   return {
     storageReady,
     storageError,
     syncState,
     folders: data.folders,
     projects: sortByName(data.projects),
+    periodicFolders: data.periodicFolders,
+    periodicPlans: sortByName(data.periodicPlans),
     createProject,
     createFolder,
     updateProjectNote,
@@ -994,5 +1331,17 @@ export function useSavingsProjects(
     updateRandomDeposit,
     regenerateRandomPlan,
     updateDetailLayout,
+    createPeriodicPlan,
+    createPeriodicFolder,
+    updatePeriodicFolderNote,
+    updatePeriodicFolderName,
+    deletePeriodicFolders,
+    movePeriodicPlansToFolder,
+    reorderPeriodicFolders,
+    deletePeriodicPlans,
+    updatePeriodicPlanName,
+    updatePeriodicPlanNote,
+    togglePeriodicPeriod,
+    updatePeriodicDetailLayout,
   }
 }

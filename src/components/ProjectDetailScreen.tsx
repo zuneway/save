@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AddEntryInput,
   DetailPanelId,
@@ -32,7 +32,9 @@ import {
 import { formatAmount, parseAmount } from '../utils/money'
 import { CollapsiblePanel } from './CollapsiblePanel'
 import { DayStatusChart } from './DayStatusChart'
+import { MilestoneCelebration } from './MilestoneCelebration'
 import { NoteEditModal } from './NoteEditModal'
+import { PanelBoard } from './PanelBoard'
 import { ProgressRing } from './ProgressRing'
 import { RandomPlanTable } from './RandomPlanTable'
 import { RenameModal } from './RenameModal'
@@ -107,10 +109,11 @@ export function ProjectDetailScreen({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const [noteModalOpen, setNoteModalOpen] = useState(false)
   const [renameModalOpen, setRenameModalOpen] = useState(false)
-  const [draggingId, setDraggingId] = useState<DetailPanelId | null>(null)
-  const [dropTargetId, setDropTargetId] = useState<DetailPanelId | null>(null)
   const [randomDoneTipOpen, setRandomDoneTipOpen] = useState(false)
   const [firstVisitGuideOpen, setFirstVisitGuideOpen] = useState(false)
+  const [celebrateGoal, setCelebrateGoal] = useState<number | null>(null)
+  const prevAmountRef = useRef<number | null>(null)
+  const trackedProjectIdRef = useRef(project.id)
 
   const layout = project.detailLayout?.length ? project.detailLayout : DEFAULT_DETAIL_LAYOUT
 
@@ -129,6 +132,26 @@ export function ProjectDetailScreen({
     setMinAmount(String(project.randomDeposit.minAmount))
     setMaxAmount(String(project.randomDeposit.maxAmount))
   }, [project.id, project.randomDeposit])
+
+  useEffect(() => {
+    const current = project.currentAmount
+    const target = project.targetAmount
+
+    if (trackedProjectIdRef.current !== project.id) {
+      trackedProjectIdRef.current = project.id
+      prevAmountRef.current = current
+      setCelebrateGoal(null)
+      return
+    }
+
+    const prev = prevAmountRef.current
+    prevAmountRef.current = current
+    if (prev == null) return
+
+    if (target > 0 && prev < target && current >= target) {
+      setCelebrateGoal(target)
+    }
+  }, [project.id, project.currentAmount, project.targetAmount])
 
   const progress = getProgress(project.currentAmount, project.targetAmount)
   const suggestedPeriodAmount = getSuggestedPeriodAmount(project)
@@ -248,41 +271,6 @@ export function ProjectDetailScreen({
     if (layout.includes(panelId)) return
     onUpdateDetailLayout([...layout, panelId])
     setAddMenuOpen(false)
-  }
-
-  const handleDragStart = (event: React.DragEvent, panelId: DetailPanelId) => {
-    event.dataTransfer.setData('text/plain', panelId)
-    event.dataTransfer.effectAllowed = 'move'
-    setDraggingId(panelId)
-    setAddMenuOpen(false)
-  }
-
-  const handleDragOver = (event: React.DragEvent, panelId: DetailPanelId) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    if (panelId !== dropTargetId) setDropTargetId(panelId)
-  }
-
-  const handleDrop = (event: React.DragEvent, targetId: DetailPanelId) => {
-    event.preventDefault()
-    const sourceId = (event.dataTransfer.getData('text/plain') || draggingId) as DetailPanelId | null
-    setDraggingId(null)
-    setDropTargetId(null)
-    if (!sourceId || sourceId === targetId) return
-
-    const from = layout.indexOf(sourceId)
-    const to = layout.indexOf(targetId)
-    if (from < 0 || to < 0) return
-
-    const next = [...layout]
-    const [moved] = next.splice(from, 1)
-    next.splice(to, 0, moved)
-    onUpdateDetailLayout(next)
-  }
-
-  const handleDragEnd = () => {
-    setDraggingId(null)
-    setDropTargetId(null)
   }
 
   const renderPanelBody = (panelId: DetailPanelId) => {
@@ -815,8 +803,10 @@ export function ProjectDetailScreen({
         </div>
       </div>
 
-      <div className="panel-board">
-        {layout.map((panelId) => (
+      <PanelBoard
+        layout={layout}
+        onReorder={onUpdateDetailLayout}
+        renderItem={(panelId, { dragging, onDragStart, onDragEnd }) => (
           <CollapsiblePanel
             key={panelId}
             title={DETAIL_PANEL_META[panelId].title}
@@ -826,21 +816,18 @@ export function ProjectDetailScreen({
                 : panelId !== 'entries' || project.entries.length > 0
             }
             draggable
-            isDropTarget={dropTargetId === panelId && draggingId !== panelId}
             onDelete={() => handleDeletePanel(panelId)}
-            onDragStart={(event) => handleDragStart(event, panelId)}
-            onDragOver={(event) => handleDragOver(event, panelId)}
-            onDragLeave={() =>
-              setDropTargetId((current) => (current === panelId ? null : current))
-            }
-            onDrop={(event) => handleDrop(event, panelId)}
-            onDragEnd={handleDragEnd}
-            className={draggingId === panelId ? 'is-dragging-panel' : ''}
+            onDragStart={(event) => {
+              setAddMenuOpen(false)
+              onDragStart(event)
+            }}
+            onDragEnd={onDragEnd}
+            className={dragging ? 'is-dragging-panel' : ''}
           >
             {renderPanelBody(panelId)}
           </CollapsiblePanel>
-        ))}
-      </div>
+        )}
+      />
 
       <NoteEditModal
         open={noteModalOpen}
@@ -938,6 +925,12 @@ export function ProjectDetailScreen({
           </div>
         </div>
       ) : null}
+
+      <MilestoneCelebration
+        goal={celebrateGoal}
+        isOpenEnded={false}
+        onClose={() => setCelebrateGoal(null)}
+      />
     </div>
   )
 }

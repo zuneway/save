@@ -7,16 +7,15 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '2.0.0'
+export const APP_VERSION = '2.2.0'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 
 /** Feature notes for the current MAJOR/MINOR release (shown after update). */
 export const APP_RELEASE_NOTES: string[] = [
-  '可選填救援信箱，並支援忘記密碼重設',
-  '一般設定可新增／更改救援信箱',
-  '剩餘天數存入金額表：存入前可確認或取消，避免誤觸',
-  '當天存入後可在金額表撤回',
+  '一般設定可更改暱稱與密碼',
+  '新增介面色調：暖色、冷色、清新綠、暮光紫、深夜模式',
+  '可選擇內建背景風景，或上傳自訂背景圖片',
 ]
 
 export type VersionBumpType = 'major' | 'minor' | 'patch' | 'none' | 'unknown'
