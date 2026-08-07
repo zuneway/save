@@ -2998,6 +2998,59 @@ body.wish-pool-open .page-header {
   line-height: 1.45;
 }
 
+.settings-collapse-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.settings-collapse-header:hover .settings-collapse-heading,
+.settings-collapse-header:focus-visible .settings-collapse-heading {
+  color: var(--accent-deep);
+}
+
+.settings-collapse-header:focus-visible {
+  outline: none;
+}
+
+.settings-collapse-header .panel-toggle {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.settings-collapse-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-collapse-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.settings-collapse-title .field-hint {
+  margin: 0;
+}
+
+.settings-collapse-body {
+  margin-top: 12px;
+}
+
+.settings-collapse.is-collapsed {
+  padding-bottom: 12px;
+}
+
 .theme-picker {
   display: grid;
   gap: 8px;
