@@ -22,6 +22,7 @@ function AuthenticatedApp({
   onLogout,
   onGoToLogin,
   onOpenPrivacy,
+  onRepairDataAfterPasswordReset,
   onSyncStateChange,
 }: {
   userId: string
@@ -31,6 +32,7 @@ function AuthenticatedApp({
   onLogout: () => void
   onGoToLogin: () => void
   onOpenPrivacy: () => void
+  onRepairDataAfterPasswordReset?: (oldPassword: string, currentPassword: string) => Promise<void>
   onSyncStateChange?: (state: 'idle' | 'syncing' | 'synced' | 'offline') => void
 }) {
   const {
@@ -63,6 +65,10 @@ function AuthenticatedApp({
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [usageGuideOpen, setUsageGuideOpen] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
+  const [oldPassword, setOldPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [repairBusy, setRepairBusy] = useState(false)
+  const [repairError, setRepairError] = useState<string | null>(null)
 
   const activeProject = activeProjectId
     ? projects.find((project) => project.id === activeProjectId) ?? null
@@ -89,6 +95,55 @@ function AuthenticatedApp({
         <p className="auth-loading">
           {storageError ? `讀取失敗：${storageError}` : '正在安全載入資料…'}
         </p>
+        {storageError && onRepairDataAfterPasswordReset ? (
+          <form
+            className="modal-form auth-repair-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (repairBusy) return
+              setRepairError(null)
+              setRepairBusy(true)
+              void onRepairDataAfterPasswordReset(oldPassword, currentPassword)
+                .then(() => {
+                  window.location.reload()
+                })
+                .catch((error: unknown) => {
+                  setRepairError(error instanceof Error ? error.message : '轉換失敗')
+                })
+                .finally(() => {
+                  setRepairBusy(false)
+                })
+            }}
+          >
+            <p className="field-hint">
+              若剛用信件重設過密碼，請輸入重設前的舊密碼與目前新密碼，以轉換加密資料。
+            </p>
+            <label className="field">
+              <span>舊密碼（重設前）</span>
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={(event) => setOldPassword(event.target.value)}
+                required
+                disabled={repairBusy}
+              />
+            </label>
+            <label className="field">
+              <span>目前密碼（重設後）</span>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                required
+                disabled={repairBusy}
+              />
+            </label>
+            {repairError ? <p className="auth-error">{repairError}</p> : null}
+            <button type="submit" className="button button-primary" disabled={repairBusy}>
+              {repairBusy ? '轉換中…' : '轉換資料並重新載入'}
+            </button>
+          </form>
+        ) : null}
         {storageError ? (
           <button type="button" className="button button-secondary" onClick={onLogout}>
             返回登入
@@ -168,8 +223,13 @@ function App() {
     dataCryptoKey,
     login,
     register,
+    requestPasswordReset,
     enterGuest,
     logout,
+    updateNickname,
+    changePassword,
+    updateRecoveryEmail,
+    repairDataAfterPasswordReset,
     wipeCurrentUserData,
     wipeAllLocalData,
   } = useAuth()
@@ -200,6 +260,9 @@ function App() {
           onLogout={logout}
           onGoToLogin={logout}
           onOpenPrivacy={() => setPrivacyOpen(true)}
+          onRepairDataAfterPasswordReset={
+            currentUser.isGuest ? undefined : repairDataAfterPasswordReset
+          }
           onSyncStateChange={setSyncState}
         />
       ) : (
@@ -207,6 +270,7 @@ function App() {
           <AuthScreen
             onLogin={login}
             onRegister={register}
+            onRequestPasswordReset={requestPasswordReset}
             onEnterGuest={enterGuest}
             onOpenInstallGuide={() => setInstallGuideOpen(true)}
             onOpenPrivacy={() => setPrivacyOpen(true)}
@@ -220,8 +284,13 @@ function App() {
         signedIn={Boolean(currentUser)}
         isGuest={Boolean(currentUser?.isGuest)}
         username={currentUser?.username ?? '尚未登入'}
+        loginUsername={currentUser?.loginUsername}
+        recoveryEmail={currentUser?.recoveryEmail}
         syncState={syncState}
         onClose={() => setPrivacyOpen(false)}
+        onUpdateNickname={updateNickname}
+        onChangePassword={changePassword}
+        onUpdateRecoveryEmail={updateRecoveryEmail}
         onWipeCurrentData={wipeCurrentUserData}
         onWipeAllLocalData={wipeAllLocalData}
       />

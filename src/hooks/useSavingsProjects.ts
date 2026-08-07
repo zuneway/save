@@ -36,12 +36,17 @@ const AUTO_COMPLETE_NOTE = '標記今日完成'
 const RANDOM_DEPOSIT_NOTE = '系統隨機分配'
 const EARLY_DEPOSIT_NOTE = '提早存入'
 const MAKEUP_DEPOSIT_NOTE = '補存入'
+const TODAY_DEPOSIT_NOTE = '今日存入'
+const TODAY_QUICK_NOTE = '今日需存入'
 const CLOUD_PUSH_DEBOUNCE_MS = 800
 
 function isAutoTodayEntry(entry: SavingsEntry, today: string) {
   return (
     entry.date === today &&
-    (entry.note === AUTO_COMPLETE_NOTE || entry.note === RANDOM_DEPOSIT_NOTE)
+    (entry.note === AUTO_COMPLETE_NOTE ||
+      entry.note === RANDOM_DEPOSIT_NOTE ||
+      entry.note === TODAY_DEPOSIT_NOTE ||
+      entry.note === TODAY_QUICK_NOTE)
   )
 }
 
@@ -395,6 +400,8 @@ async function pushPayloadToCloud(userId: string, payload: string, updatedAt: nu
   if (!meta) return
   await saveCloudUserDoc(userId, {
     username: meta.username,
+    loginUsername: meta.loginUsername || meta.username,
+    recoveryEmail: meta.recoveryEmail,
     dataSalt: meta.dataSalt,
     dataKeyIterations: meta.dataKeyIterations,
     payload,
@@ -773,6 +780,7 @@ export function useSavingsProjects(
       const today = getTodayDateInputValue()
       if (kind === 'early' && date <= today) return
       if (kind === 'makeup' && date >= today) return
+      if (kind === 'today' && date !== today) return
 
       setDataStamped((prev) =>
         updateProject(prev, projectId, (project) => {
@@ -781,7 +789,12 @@ export function useSavingsProjects(
 
           const planned = getPlannedAmount(project, date) ?? 0
           const amount = Math.min(Math.max(0, planned), getRemainingAmount(project))
-          const note = kind === 'early' ? EARLY_DEPOSIT_NOTE : MAKEUP_DEPOSIT_NOTE
+          const note =
+            kind === 'early'
+              ? EARLY_DEPOSIT_NOTE
+              : kind === 'makeup'
+                ? MAKEUP_DEPOSIT_NOTE
+                : TODAY_DEPOSIT_NOTE
 
           let entries = project.entries
           let currentAmount = project.currentAmount
@@ -826,24 +839,30 @@ export function useSavingsProjects(
 
   const undoEarlyDeposit = useCallback((projectId: string, date: string) => {
     const today = getTodayDateInputValue()
-    if (date <= today) return
+    // Future days: undo early deposit. Today: undo today's planned deposit/completion.
+    if (date < today) return
 
     setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => {
         if (!(project.completedDates ?? []).includes(date)) return project
         if (!getProjectDateKeys(project).includes(date)) return project
 
-        const earlyEntries = project.entries.filter((entry) => isEarlyDepositEntry(entry, date))
-        if (earlyEntries.length === 0) return project
+        const isToday = date === today
+        const removable = project.entries.filter((entry) =>
+          isToday ? isAutoTodayEntry(entry, today) : isEarlyDepositEntry(entry, date),
+        )
+        // Today may be marked complete with no matched entry; still allow un-complete.
+        if (!isToday && removable.length === 0) return project
 
-        const removedAmount = earlyEntries.reduce((sum, entry) => sum + entry.amount, 0)
+        const removedAmount = removable.reduce((sum, entry) => sum + entry.amount, 0)
         const preservedAmount = getPlannedAmount(project, date) ?? removedAmount
+        const removableIds = new Set(removable.map((entry) => entry.id))
 
         const nextProject: SavingsProject = {
           ...project,
           completedDates: project.completedDates.filter((item) => item !== date),
           currentAmount: Math.max(0, project.currentAmount - removedAmount),
-          entries: project.entries.filter((entry) => !isEarlyDepositEntry(entry, date)),
+          entries: project.entries.filter((entry) => !removableIds.has(entry.id)),
         }
 
         if (nextProject.randomDeposit.enabled) {

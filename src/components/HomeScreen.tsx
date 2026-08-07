@@ -8,6 +8,7 @@ import type {
 } from '../types/savings'
 import { formatDeadlineSummary, getCurrentStageStatus, getRemainingDays } from '../utils/deadline'
 import { formatAmount } from '../utils/money'
+import { AccountMenu } from './AccountMenu'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreateProjectModal } from './CreateProjectModal'
@@ -102,6 +103,7 @@ export function HomeScreen({
   onCreateProjectOpenChange,
 }: HomeScreenProps) {
   const [folderModalOpen, setFolderModalOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [selectionMenuOpen, setSelectionMenuOpen] = useState(false)
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('single')
@@ -360,10 +362,28 @@ export function HomeScreen({
       className={`home-screen ${dragging ? 'is-dragging' : ''} ${draggingFolderId ? 'is-reordering-folders' : ''}`}
     >
       <div className="floating-dock floating-dock-left">
-        <div className="account-chip" title={isGuest ? `${username}（訪客模式）` : username}>
+        <button
+          type="button"
+          className="account-chip"
+          title={isGuest ? `${username}（訪客模式）` : username}
+          aria-haspopup="dialog"
+          aria-expanded={accountMenuOpen}
+          onClick={() => {
+            setCreateMenuOpen(false)
+            setSelectionMenuOpen(false)
+            setAccountMenuOpen(true)
+          }}
+        >
           <span className="account-chip-name">{username}</span>
           {isGuest ? <span className="guest-badge">訪客</span> : null}
-        </div>
+        </button>
+        <AccountMenu
+          open={accountMenuOpen}
+          username={username}
+          isGuest={isGuest}
+          onClose={() => setAccountMenuOpen(false)}
+          onOpenSettings={onOpenPrivacy}
+        />
         <div className={`island-wrap ${hasSelection ? 'is-visible' : 'is-hidden'}`}>
           <button
             type="button"
@@ -373,6 +393,7 @@ export function HomeScreen({
             aria-expanded={selectionMenuOpen}
             disabled={!hasSelection}
             onClick={() => {
+              setAccountMenuOpen(false)
               setCreateMenuOpen(false)
               setSelectionMenuOpen((open) => !open)
             }}
@@ -429,6 +450,7 @@ export function HomeScreen({
             aria-haspopup="menu"
             aria-expanded={createMenuOpen}
             onClick={() => {
+              setAccountMenuOpen(false)
               setSelectionMenuOpen(false)
               setCreateMenuOpen((open) => !open)
             }}

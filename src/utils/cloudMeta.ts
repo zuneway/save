@@ -4,7 +4,12 @@ const CLOUD_META_KEY = 'savings-system:cloud-meta'
 
 export interface CloudMeta {
   uid: string
+  /** Display nickname */
   username: string
+  /** Stable login account name (Firebase email identity); defaults to username for legacy profiles */
+  loginUsername?: string
+  /** Real recovery email when bound; omitted for synthetic-only accounts */
+  recoveryEmail?: string
   dataSalt: string
   dataKeyIterations: number
   createdAt: string
@@ -19,6 +24,14 @@ export function loadCloudMeta(uid: string): CloudMeta | null {
     return {
       uid: parsed.uid,
       username: parsed.username,
+      loginUsername:
+        typeof parsed.loginUsername === 'string' && parsed.loginUsername.trim()
+          ? parsed.loginUsername
+          : undefined,
+      recoveryEmail:
+        typeof parsed.recoveryEmail === 'string' && parsed.recoveryEmail.trim()
+          ? parsed.recoveryEmail.trim().toLowerCase()
+          : undefined,
       dataSalt: parsed.dataSalt,
       dataKeyIterations:
         typeof parsed.dataKeyIterations === 'number' && parsed.dataKeyIterations > 0

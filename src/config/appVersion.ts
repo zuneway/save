@@ -7,13 +7,16 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '2.0.0'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 
 /** Feature notes for the current MAJOR/MINOR release (shown after update). */
 export const APP_RELEASE_NOTES: string[] = [
-  '大版本與中版本更新時，會彈出視窗說明本次新增的功能',
+  '可選填救援信箱，並支援忘記密碼重設',
+  '一般設定可新增／更改救援信箱',
+  '剩餘天數存入金額表：存入前可確認或取消，避免誤觸',
+  '當天存入後可在金額表撤回',
 ]
 
 export type VersionBumpType = 'major' | 'minor' | 'patch' | 'none' | 'unknown'

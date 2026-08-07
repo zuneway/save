@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { PlannedDayDepositKind, SavingsProject } from '../types/savings'
 import {
   getDayStatus,
@@ -15,6 +15,10 @@ interface RandomPlanTableProps {
   onCompletePlannedDay: (date: string, kind: PlannedDayDepositKind) => void
   onUndoEarlyDeposit: (date: string) => void
 }
+
+type PendingAction =
+  | { type: 'deposit'; date: string; kind: PlannedDayDepositKind; amount: number }
+  | { type: 'undo'; date: string; target: 'early' | 'today' }
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('zh-TW', {
@@ -34,6 +38,31 @@ const STATUS_LABEL = {
 
 const EARLY_DEPOSIT_NOTE = '提早存入'
 
+function depositLabel(kind: PlannedDayDepositKind) {
+  if (kind === 'early') return '提早存入'
+  if (kind === 'makeup') return '補存入'
+  return '今日存入'
+}
+
+function pendingTitle(pending: PendingAction) {
+  if (pending.type === 'undo') return '確認撤回'
+  return `確認${depositLabel(pending.kind)}`
+}
+
+function pendingMessage(pending: PendingAction) {
+  if (pending.type === 'undo') {
+    const label = pending.target === 'today' ? '今日存入' : '提早存入'
+    return `確定撤回 ${formatDate(pending.date)} 的${label}嗎？`
+  }
+  const amountText = pending.amount > 0 ? formatAmount(pending.amount) : 'NT$0'
+  return `確定${depositLabel(pending.kind)} ${formatDate(pending.date)}（${amountText}）嗎？`
+}
+
+function pendingConfirmLabel(pending: PendingAction) {
+  if (pending.type === 'undo') return '確定撤回'
+  return `確定${depositLabel(pending.kind)}`
+}
+
 export function RandomPlanTable({
   project,
   onCompletePlannedDay,
@@ -42,6 +71,8 @@ export function RandomPlanTable({
   const today = getTodayDateInputValue()
   const remainingAmount = getRemainingAmount(project)
   const totalDays = getTotalDays(project)
+  const [pending, setPending] = useState<PendingAction | null>(null)
+  const confirmTitleId = useId()
 
   const rows = useMemo(() => {
     const amountMap = new Map(
@@ -55,6 +86,8 @@ export function RandomPlanTable({
         project.entries.some(
           (entry) => entry.date === date && entry.note === EARLY_DEPOSIT_NOTE,
         )
+      // Today completed → allow撤回 (same idea as early-deposit undo).
+      const canUndoToday = status === 'completed' && date === today
       return {
         index: index + 1,
         date,
@@ -62,6 +95,7 @@ export function RandomPlanTable({
         status,
         isToday: date === today,
         canUndoEarly,
+        canUndoToday,
       }
     })
   }, [project, today])
@@ -72,17 +106,25 @@ export function RandomPlanTable({
     return <p className="folder-empty">目前沒有可分配的天數。</p>
   }
 
-  const handleAction = (date: string, kind: PlannedDayDepositKind, amount: number) => {
-    const label = kind === 'early' ? '提早存入' : '補存入'
+  const requestDeposit = (date: string, kind: PlannedDayDepositKind, amount: number) => {
     const depositAmount = Math.min(Math.max(0, amount), remainingAmount)
-    const amountText = depositAmount > 0 ? formatAmount(depositAmount) : 'NT$0'
-    if (!window.confirm(`確定${label} ${formatDate(date)}（${amountText}）嗎？`)) return
-    onCompletePlannedDay(date, kind)
+    setPending({ type: 'deposit', date, kind, amount: depositAmount })
   }
 
-  const handleUndoEarly = (date: string) => {
-    if (!window.confirm(`確定撤回 ${formatDate(date)} 的提早存入嗎？`)) return
-    onUndoEarlyDeposit(date)
+  const requestUndo = (date: string, target: 'early' | 'today') => {
+    setPending({ type: 'undo', date, target })
+  }
+
+  const closePending = () => setPending(null)
+
+  const confirmPending = () => {
+    if (!pending) return
+    if (pending.type === 'deposit') {
+      onCompletePlannedDay(pending.date, pending.kind)
+    } else {
+      onUndoEarlyDeposit(pending.date)
+    }
+    setPending(null)
   }
 
   return (
@@ -108,6 +150,7 @@ export function RandomPlanTable({
           </thead>
           <tbody>
             {rows.map((row) => {
+              const canToday = row.status === 'today'
               const canMakeup = row.status === 'missed'
               const canEarly = row.status === 'upcoming'
 
@@ -120,11 +163,27 @@ export function RandomPlanTable({
                     {row.amount > 0 ? formatAmount(row.amount) : '—'}
                   </td>
                   <td className="action-cell">
-                    {canMakeup ? (
+                    {canToday ? (
+                      <button
+                        type="button"
+                        className="button button-primary button-compact"
+                        onClick={() => requestDeposit(row.date, 'today', row.amount)}
+                      >
+                        今日存入
+                      </button>
+                    ) : row.canUndoToday ? (
                       <button
                         type="button"
                         className="button button-secondary button-compact"
-                        onClick={() => handleAction(row.date, 'makeup', row.amount)}
+                        onClick={() => requestUndo(row.date, 'today')}
+                      >
+                        撤回
+                      </button>
+                    ) : canMakeup ? (
+                      <button
+                        type="button"
+                        className="button button-secondary button-compact"
+                        onClick={() => requestDeposit(row.date, 'makeup', row.amount)}
                       >
                         補存入
                       </button>
@@ -132,7 +191,7 @@ export function RandomPlanTable({
                       <button
                         type="button"
                         className="button button-secondary button-compact"
-                        onClick={() => handleAction(row.date, 'early', row.amount)}
+                        onClick={() => requestDeposit(row.date, 'early', row.amount)}
                       >
                         提早存入
                       </button>
@@ -140,7 +199,7 @@ export function RandomPlanTable({
                       <button
                         type="button"
                         className="button button-secondary button-compact"
-                        onClick={() => handleUndoEarly(row.date)}
+                        onClick={() => requestUndo(row.date, 'early')}
                       >
                         撤回
                       </button>
@@ -161,6 +220,39 @@ export function RandomPlanTable({
           </tfoot>
         </table>
       </div>
+
+      {pending ? (
+        <div className="modal-backdrop" onClick={closePending} role="presentation">
+          <div
+            className="modal random-plan-confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={confirmTitleId}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="modal-header">
+              <h2 id={confirmTitleId}>{pendingTitle(pending)}</h2>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closePending}
+                aria-label="關閉"
+              >
+                ×
+              </button>
+            </header>
+            <p className="random-plan-confirm-text">{pendingMessage(pending)}</p>
+            <div className="modal-actions">
+              <button type="button" className="button button-secondary" onClick={closePending}>
+                取消
+              </button>
+              <button type="button" className="button button-primary" onClick={confirmPending}>
+                {pendingConfirmLabel(pending)}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

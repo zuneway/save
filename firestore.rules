@@ -4,5 +4,17 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Public get for login / forgot-password lookup by username.
+    // Do not allow listing all usernames.
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 3;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
   }
 }

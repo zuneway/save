@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  EmailAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  updateEmail,
+  updatePassword,
   updateProfile,
   type User,
 } from 'firebase/auth'
@@ -11,12 +16,25 @@ import type { AuthSession, AuthUser, CurrentUser } from '../types/auth'
 import { GUEST_USER_ID } from '../types/auth'
 import { getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase'
 import {
+  extractFirebaseErrorCode,
+  isCloudPermissionDenied,
+  isSyntheticAuthEmail,
+  isValidRecoveryEmail,
   mapFirebaseAuthError,
+  normalizeRecoveryEmail,
   normalizeUsername,
   usernameToEmail,
+  usernameToEmailCandidates,
 } from '../utils/cloudAccount'
 import { clearCloudMeta, loadCloudMeta, saveCloudMeta, type CloudMeta } from '../utils/cloudMeta'
-import { deleteCloudUserDoc, fetchCloudUserDoc, saveCloudUserDoc } from '../utils/cloudSync'
+import {
+  deleteCloudUserDoc,
+  deleteUsernameIndex,
+  fetchCloudUserDoc,
+  fetchUsernameIndex,
+  saveCloudUserDoc,
+  saveUsernameIndex,
+} from '../utils/cloudSync'
 import {
   LEGACY_PBKDF2_ITERATIONS,
   PASSWORD_MIN_LENGTH,
@@ -70,6 +88,8 @@ function normalizeUser(item: unknown): { user: AuthUser; migrated: boolean } | n
     user: {
       id: raw.id,
       username: raw.username,
+      nickname:
+        typeof raw.nickname === 'string' && raw.nickname.trim() ? raw.nickname.trim() : undefined,
       passwordHash: raw.passwordHash,
       salt: raw.salt,
       dataSalt,
@@ -224,6 +244,55 @@ function validatePassword(password: string) {
   }
 }
 
+function validateNickname(nickname: string) {
+  const normalized = normalizeUsername(nickname)
+  if (!normalized) throw new Error('請輸入暱稱')
+  if (normalized.length > 32) throw new Error('暱稱最多 32 個字元')
+  if (normalized.toLowerCase() === 'guest' || normalized === '訪客') {
+    throw new Error('這個暱稱不可使用')
+  }
+  return normalized
+}
+
+async function reencryptUserPayload(
+  userId: string,
+  oldKey: CryptoKey,
+  newKey: CryptoKey,
+): Promise<string | null> {
+  const raw = localStorage.getItem(storageDataKey(userId))
+  if (!raw) return null
+
+  const object = tryParseJsonObject(raw)
+  let data: { folders?: unknown; projects?: unknown }
+  if (object && isEncryptedBlob(object)) {
+    data = await decryptJson<{ folders?: unknown; projects?: unknown }>(oldKey, raw)
+  } else {
+    try {
+      data = JSON.parse(raw) as { folders?: unknown; projects?: unknown }
+    } catch {
+      throw new Error('目前密碼錯誤，或資料無法讀取')
+    }
+  }
+
+  const payload = await encryptJson(newKey, {
+    folders: Array.isArray(data.folders) ? data.folders : [],
+    projects: Array.isArray(data.projects) ? data.projects : [],
+    updatedAt: Date.now(),
+  })
+  localStorage.setItem(storageDataKey(userId), payload)
+  return payload
+}
+
+async function reauthenticateCloudUser(user: User, password: string) {
+  const email = user.email
+  if (!email) throw new Error('找不到登入帳號，請重新登入後再試')
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, password))
+  } catch (error) {
+    throw new Error(mapFirebaseAuthError(error))
+  }
+}
+
 async function migrateLocalAccountToCloud(
   uid: string,
   username: string,
@@ -306,16 +375,31 @@ async function ensureCloudProfile(
   password: string,
   options?: { migrateLocal?: boolean },
 ): Promise<{ meta: CloudMeta; cryptoKey: CryptoKey }> {
-  const existing = await fetchCloudUserDoc(firebaseUser.uid)
+  let existing: Awaited<ReturnType<typeof fetchCloudUserDoc>> = null
+  try {
+    existing = await fetchCloudUserDoc(firebaseUser.uid)
+  } catch (error) {
+    // Rules not published yet — continue with local profile so login still works.
+    if (!isCloudPermissionDenied(error)) throw error
+  }
+
+  const authRecoveryEmail =
+    firebaseUser.email && !isSyntheticAuthEmail(firebaseUser.email)
+      ? normalizeRecoveryEmail(firebaseUser.email)
+      : undefined
+
   if (existing) {
     const cryptoKey = await deriveDataKey(
       password,
       existing.dataSalt,
       existing.dataKeyIterations,
     )
+    const displayName = existing.username || username
     const meta: CloudMeta = {
       uid: firebaseUser.uid,
-      username: existing.username || username,
+      username: displayName,
+      loginUsername: existing.loginUsername || displayName || username,
+      recoveryEmail: existing.recoveryEmail || authRecoveryEmail,
       dataSalt: existing.dataSalt,
       dataKeyIterations: existing.dataKeyIterations,
       createdAt: existing.createdAt,
@@ -323,6 +407,40 @@ async function ensureCloudProfile(
     saveCloudMeta(meta)
     if (existing.payload) {
       localStorage.setItem(storageDataKey(firebaseUser.uid), existing.payload)
+    }
+    return { meta, cryptoKey }
+  }
+
+  const cached = loadCloudMeta(firebaseUser.uid)
+  if (cached?.dataSalt) {
+    const cryptoKey = await deriveDataKey(
+      password,
+      cached.dataSalt,
+      cached.dataKeyIterations || PBKDF2_ITERATIONS,
+    )
+    const meta: CloudMeta = {
+      ...cached,
+      username: cached.username || username,
+      loginUsername: cached.loginUsername || cached.username || username,
+      recoveryEmail: cached.recoveryEmail || authRecoveryEmail,
+    }
+    saveCloudMeta(meta)
+    try {
+      const localPayload = localStorage.getItem(storageDataKey(firebaseUser.uid))
+      await saveCloudUserDoc(firebaseUser.uid, {
+        username: meta.username,
+        loginUsername: meta.loginUsername,
+        recoveryEmail: meta.recoveryEmail,
+        dataSalt: meta.dataSalt,
+        dataKeyIterations: meta.dataKeyIterations,
+        payload:
+          localPayload ??
+          (await encryptJson(cryptoKey, { folders: [], projects: [], updatedAt: Date.now() })),
+        updatedAt: Date.now(),
+        createdAt: meta.createdAt,
+      })
+    } catch (error) {
+      if (!isCloudPermissionDenied(error)) throw error
     }
     return { meta, cryptoKey }
   }
@@ -338,30 +456,45 @@ async function ensureCloudProfile(
   const meta: CloudMeta = {
     uid: firebaseUser.uid,
     username,
+    loginUsername: username,
+    recoveryEmail: authRecoveryEmail,
     dataSalt,
     dataKeyIterations: PBKDF2_ITERATIONS,
     createdAt,
   }
-  await saveCloudUserDoc(firebaseUser.uid, {
-    username,
-    dataSalt,
-    dataKeyIterations: PBKDF2_ITERATIONS,
-    payload,
-    updatedAt: Date.now(),
-    createdAt,
-  })
+
+  // Always persist locally first so a Firestore rules outage cannot block login.
   saveCloudMeta(meta)
   localStorage.setItem(storageDataKey(firebaseUser.uid), payload)
 
-  if (options?.migrateLocal !== false) {
-    await migrateLocalAccountToCloud(
-      firebaseUser.uid,
+  try {
+    await saveCloudUserDoc(firebaseUser.uid, {
       username,
-      password,
+      loginUsername: username,
+      recoveryEmail: authRecoveryEmail,
       dataSalt,
-      PBKDF2_ITERATIONS,
-      cryptoKey,
-    )
+      dataKeyIterations: PBKDF2_ITERATIONS,
+      payload,
+      updatedAt: Date.now(),
+      createdAt,
+    })
+  } catch (error) {
+    if (!isCloudPermissionDenied(error)) throw error
+  }
+
+  if (options?.migrateLocal !== false) {
+    try {
+      await migrateLocalAccountToCloud(
+        firebaseUser.uid,
+        username,
+        password,
+        dataSalt,
+        PBKDF2_ITERATIONS,
+        cryptoKey,
+      )
+    } catch (error) {
+      if (!isCloudPermissionDenied(error)) throw error
+    }
   }
 
   return { meta, cryptoKey }
@@ -395,6 +528,7 @@ export function useAuth() {
   const [cloudUsername, setCloudUsername] = useState<string | null>(null)
   const [dataCryptoKey, setDataCryptoKey] = useState<CryptoKey | null>(null)
   const [ready, setReady] = useState(false)
+  const [accountEpoch, setAccountEpoch] = useState(0)
 
   const clearDataKey = useCallback((userId?: string) => {
     clearStoredDataKey(userId)
@@ -477,6 +611,13 @@ export function useAuth() {
               meta = {
                 uid: firebaseUser.uid,
                 username: doc.username,
+                loginUsername: doc.loginUsername || meta?.loginUsername || doc.username,
+                recoveryEmail:
+                  doc.recoveryEmail ||
+                  meta?.recoveryEmail ||
+                  (firebaseUser.email && !isSyntheticAuthEmail(firebaseUser.email)
+                    ? normalizeRecoveryEmail(firebaseUser.email)
+                    : undefined),
                 dataSalt: doc.dataSalt,
                 dataKeyIterations: doc.dataKeyIterations,
                 createdAt: doc.createdAt,
@@ -501,10 +642,15 @@ export function useAuth() {
             (pendingDataKey?.userId === firebaseUser.uid ? pendingDataKey.key : null)
 
           // Login/register may still be writing the durable key; wait before giving up.
+          // While bootstrap is active, keep waiting (PBKDF2 + Firestore can exceed a few seconds).
           if (!restored) {
-            const maxAttempts = authBootstrapDepth > 0 ? 80 : 30
-            for (let attempt = 0; attempt < maxAttempts && !restored; attempt += 1) {
+            const graceAttempts = 30
+            let attempts = 0
+            while (!restored) {
+              const bootstrapping = authBootstrapDepth > 0
+              if (!bootstrapping && attempts >= graceAttempts) break
               await new Promise((resolve) => window.setTimeout(resolve, 50))
+              attempts += 1
               restored =
                 (await restoreDataKey(firebaseUser.uid)) ??
                 (pendingDataKey?.userId === firebaseUser.uid ? pendingDataKey.key : null)
@@ -572,6 +718,7 @@ export function useAuth() {
   }, [])
 
   const currentUser: CurrentUser | null = (() => {
+    void accountEpoch
     if (!session) return null
     if (session.isGuest || session.userId === GUEST_USER_ID) {
       return { id: GUEST_USER_ID, username: '訪客', isGuest: true }
@@ -579,15 +726,24 @@ export function useAuth() {
     // Registered account without data key should not stay "half logged in".
     if (!dataCryptoKey) return null
     if (isFirebaseConfigured()) {
+      const meta = loadCloudMeta(session.userId)
+      const displayName = cloudUsername ?? meta?.username ?? '使用者'
       return {
         id: session.userId,
-        username: cloudUsername ?? loadCloudMeta(session.userId)?.username ?? '使用者',
+        username: displayName,
+        loginUsername: meta?.loginUsername || displayName,
+        recoveryEmail: meta?.recoveryEmail,
         isGuest: false,
       }
     }
     const user = users.find((item) => item.id === session.userId)
     if (!user) return null
-    return { id: user.id, username: user.username, isGuest: false }
+    return {
+      id: user.id,
+      username: user.nickname || user.username,
+      loginUsername: user.username,
+      isGuest: false,
+    }
   })()
 
   const enterGuest = useCallback(async () => {
@@ -614,12 +770,46 @@ export function useAuth() {
       const nextSession: AuthSession = { userId: firebaseUser.uid, isGuest: false }
       saveSession(nextSession)
       setSession(nextSession)
+      setReady(true)
     },
     [setUnlockedKey],
   )
 
+  const signInWithUsernamePassword = useCallback(async (username: string, password: string) => {
+    const auth = getFirebaseAuth()
+    const emails = usernameToEmailCandidates(username)
+    try {
+      const indexed = await fetchUsernameIndex(username)
+      if (indexed?.email && !emails.includes(indexed.email)) {
+        emails.unshift(indexed.email)
+      }
+    } catch {
+      // Index optional when offline / rules lag.
+    }
+
+    let lastError: unknown = null
+    for (const email of emails) {
+      try {
+        return await signInWithEmailAndPassword(auth, email, password)
+      } catch (error) {
+        lastError = error
+        const code = extractFirebaseErrorCode(error)
+        // Wrong password on an existing identity should stop; missing identity may be legacy email.
+        if (code === 'auth/wrong-password') throw error
+        if (
+          code !== 'auth/user-not-found' &&
+          code !== 'auth/invalid-credential' &&
+          code !== 'auth/invalid-login-credentials'
+        ) {
+          throw error
+        }
+      }
+    }
+    throw lastError ?? new Error('帳號或密碼錯誤')
+  }, [])
+
   const registerCloud = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, password: string, recoveryEmail?: string) => {
       const normalized = normalizeUsername(username)
       if (!normalized) throw new Error('請輸入帳號')
       validatePassword(password)
@@ -627,28 +817,66 @@ export function useAuth() {
         throw new Error('這個帳號名稱不可使用')
       }
 
+      const trimmedRecovery = recoveryEmail?.trim() ? normalizeRecoveryEmail(recoveryEmail) : ''
+      if (trimmedRecovery && !isValidRecoveryEmail(trimmedRecovery)) {
+        throw new Error('救援信箱格式不正確')
+      }
+
+      const authEmail = trimmedRecovery || usernameToEmail(normalized)
+
       beginAuthBootstrap()
       try {
         const auth = getFirebaseAuth()
         try {
-          const credential = await createUserWithEmailAndPassword(
-            auth,
-            usernameToEmail(normalized),
-            password,
-          )
+          const existingIndex = await fetchUsernameIndex(normalized)
+          if (existingIndex) throw new Error('這個帳號已被使用')
+        } catch (error) {
+          if (error instanceof Error && error.message === '這個帳號已被使用') throw error
+          // Ignore index read failures (permissions / offline).
+        }
+
+        try {
+          const credential = await createUserWithEmailAndPassword(auth, authEmail, password)
           await updateProfile(credential.user, { displayName: normalized })
           await completeCloudSession(credential.user, normalized, password)
+          try {
+            await saveUsernameIndex(normalized, {
+              uid: credential.user.uid,
+              email: authEmail,
+            })
+            if (trimmedRecovery) {
+              const meta = loadCloudMeta(credential.user.uid)
+              if (meta) {
+                const nextMeta: CloudMeta = { ...meta, recoveryEmail: trimmedRecovery }
+                saveCloudMeta(nextMeta)
+                const localPayload = localStorage.getItem(storageDataKey(credential.user.uid))
+                if (localPayload) {
+                  await saveCloudUserDoc(credential.user.uid, {
+                    username: nextMeta.username,
+                    loginUsername: nextMeta.loginUsername || normalized,
+                    recoveryEmail: trimmedRecovery,
+                    dataSalt: nextMeta.dataSalt,
+                    dataKeyIterations: nextMeta.dataKeyIterations,
+                    payload: localPayload,
+                    updatedAt: Date.now(),
+                    createdAt: nextMeta.createdAt,
+                  })
+                }
+              }
+            }
+          } catch (error) {
+            if (!isCloudPermissionDenied(error)) {
+              // Account is usable even if index write fails; login may need synthetic/recovery path.
+              console.warn('Failed to persist username index / recovery email', error)
+            }
+          }
         } catch (error) {
           // First attempt may have created Auth user then failed mid-setup.
           // Resume with the same password instead of a false "already used".
           if (!isAuthEmailInUse(error)) throw new Error(mapFirebaseAuthError(error))
 
           try {
-            const credential = await signInWithEmailAndPassword(
-              auth,
-              usernameToEmail(normalized),
-              password,
-            )
+            const credential = await signInWithUsernamePassword(normalized, password)
             await completeCloudSession(credential.user, normalized, password)
           } catch {
             throw new Error('這個帳號已被使用')
@@ -658,23 +886,18 @@ export function useAuth() {
         endAuthBootstrap()
       }
     },
-    [completeCloudSession],
+    [completeCloudSession, signInWithUsernamePassword],
   )
 
   const loginCloud = useCallback(
     async (username: string, password: string) => {
       const normalized = normalizeUsername(username)
       if (!normalized) throw new Error('請輸入帳號')
-      validatePassword(password)
+      if (!password) throw new Error('請輸入密碼')
 
       beginAuthBootstrap()
       try {
-        const auth = getFirebaseAuth()
-        const credential = await signInWithEmailAndPassword(
-          auth,
-          usernameToEmail(normalized),
-          password,
-        )
+        const credential = await signInWithUsernamePassword(normalized, password)
         await completeCloudSession(credential.user, normalized, password)
       } catch (error) {
         throw new Error(mapFirebaseAuthError(error))
@@ -682,7 +905,7 @@ export function useAuth() {
         endAuthBootstrap()
       }
     },
-    [completeCloudSession],
+    [completeCloudSession, signInWithUsernamePassword],
   )
 
   const registerLocal = useCallback(
@@ -766,11 +989,202 @@ export function useAuth() {
   )
 
   const register = useCallback(
-    async (username: string, password: string) => {
-      if (isFirebaseConfigured()) return registerCloud(username, password)
+    async (username: string, password: string, recoveryEmail?: string) => {
+      if (isFirebaseConfigured()) return registerCloud(username, password, recoveryEmail)
+      if (recoveryEmail?.trim()) {
+        throw new Error('本機模式無法使用救援信箱，請改用以雲端同步的正式站台註冊')
+      }
       return registerLocal(username, password)
     },
     [registerCloud, registerLocal],
+  )
+
+  const requestPasswordReset = useCallback(async (account: string) => {
+    if (!isFirebaseConfigured()) {
+      throw new Error('目前無法使用忘記密碼，請確認雲端同步已啟用')
+    }
+    const trimmed = account.trim()
+    if (!trimmed) throw new Error('請輸入帳號或救援信箱')
+
+    const auth = getFirebaseAuth()
+    let email = ''
+
+    if (trimmed.includes('@')) {
+      email = normalizeRecoveryEmail(trimmed)
+      if (!isValidRecoveryEmail(email)) {
+        throw new Error('請輸入有效的救援信箱')
+      }
+    } else {
+      const normalized = normalizeUsername(trimmed)
+      if (!normalized) throw new Error('請輸入帳號或救援信箱')
+      let indexed: Awaited<ReturnType<typeof fetchUsernameIndex>> = null
+      try {
+        indexed = await fetchUsernameIndex(normalized)
+      } catch {
+        throw new Error('無法查詢帳號，請稍後再試或改填救援信箱')
+      }
+      if (!indexed?.email || isSyntheticAuthEmail(indexed.email)) {
+        throw new Error(
+          '此帳號尚未設定救援信箱。請先用原密碼登入，到「一般設定」新增救援信箱後再使用忘記密碼。',
+        )
+      }
+      email = indexed.email
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email)
+    } catch (error) {
+      const code = extractFirebaseErrorCode(error)
+      if (
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-login-credentials'
+      ) {
+        throw new Error('查無此信箱')
+      }
+      throw new Error(mapFirebaseAuthError(error))
+    }
+  }, [])
+
+  const updateRecoveryEmail = useCallback(
+    async (currentPassword: string, nextEmail: string) => {
+      if (!currentUser || currentUser.isGuest) {
+        throw new Error('訪客模式無法設定救援信箱，請先登入正式帳號')
+      }
+      if (!isFirebaseConfigured()) {
+        throw new Error('雲端尚未設定，無法使用救援信箱')
+      }
+      if (!currentPassword) throw new Error('請輸入目前密碼')
+      const email = normalizeRecoveryEmail(nextEmail)
+      if (!isValidRecoveryEmail(email)) {
+        throw new Error('救援信箱格式不正確，請輸入有效的電子郵件地址')
+      }
+
+      const auth = getFirebaseAuth()
+      const firebaseUser = auth.currentUser
+      if (!firebaseUser || firebaseUser.uid !== currentUser.id) {
+        throw new Error('登入狀態已失效，請重新登入')
+      }
+      const meta = loadCloudMeta(firebaseUser.uid)
+      if (!meta) throw new Error('找不到帳號資料，請重新登入')
+      if (meta.recoveryEmail && meta.recoveryEmail === email) return
+
+      try {
+        await reauthenticateCloudUser(firebaseUser, currentPassword)
+      } catch (error) {
+        const mapped = error instanceof Error ? error.message : mapFirebaseAuthError(error)
+        if (mapped === '目前無法使用帳號密碼登入，請聯絡管理員檢查設定') {
+          throw new Error('查無此信箱')
+        }
+        throw error instanceof Error ? error : new Error(mapped)
+      }
+
+      try {
+        await updateEmail(firebaseUser, email)
+      } catch (error) {
+        const code = extractFirebaseErrorCode(error)
+        if (code === 'auth/invalid-email') {
+          throw new Error('救援信箱格式不正確，請輸入有效的電子郵件地址')
+        }
+        if (code === 'auth/operation-not-allowed' || code === 'auth/user-not-found') {
+          throw new Error('查無此信箱')
+        }
+        const mapped = mapFirebaseAuthError(error)
+        if (mapped === '目前無法使用帳號密碼登入，請聯絡管理員檢查設定') {
+          throw new Error('查無此信箱')
+        }
+        throw new Error(mapped)
+      }
+
+      const loginName = meta.loginUsername || meta.username
+      const localPayload = localStorage.getItem(storageDataKey(firebaseUser.uid))
+      const nextMeta: CloudMeta = { ...meta, recoveryEmail: email }
+      saveCloudMeta(nextMeta)
+
+      try {
+        await saveUsernameIndex(loginName, { uid: firebaseUser.uid, email })
+        await saveCloudUserDoc(firebaseUser.uid, {
+          username: meta.username,
+          loginUsername: loginName,
+          recoveryEmail: email,
+          dataSalt: meta.dataSalt,
+          dataKeyIterations: meta.dataKeyIterations,
+          payload:
+            localPayload ??
+            (await encryptJson(
+              dataCryptoKey ??
+                (await deriveDataKey(currentPassword, meta.dataSalt, meta.dataKeyIterations)),
+              { folders: [], projects: [], updatedAt: Date.now() },
+            )),
+          updatedAt: Date.now(),
+          createdAt: meta.createdAt,
+        })
+      } catch (error) {
+        if (!isCloudPermissionDenied(error)) throw new Error(mapFirebaseAuthError(error))
+      }
+      setAccountEpoch((value) => value + 1)
+    },
+    [currentUser, dataCryptoKey],
+  )
+
+  const repairDataAfterPasswordReset = useCallback(
+    async (oldPassword: string, currentPassword: string) => {
+      if (!currentUser || currentUser.isGuest) {
+        throw new Error('請先登入正式帳號')
+      }
+      if (!oldPassword || !currentPassword) throw new Error('請輸入舊密碼與目前密碼')
+      validatePassword(currentPassword)
+      if (oldPassword === currentPassword) {
+        throw new Error('舊密碼與目前密碼相同，無需轉換')
+      }
+
+      const meta = loadCloudMeta(currentUser.id)
+      if (!meta) throw new Error('找不到帳號資料，請重新登入')
+
+      let oldKey: CryptoKey
+      try {
+        oldKey = await deriveDataKey(oldPassword, meta.dataSalt, meta.dataKeyIterations)
+        const raw = localStorage.getItem(storageDataKey(currentUser.id))
+        if (raw) {
+          const object = tryParseJsonObject(raw)
+          if (object && isEncryptedBlob(object)) {
+            await decryptJson(oldKey, raw)
+          }
+        }
+      } catch {
+        throw new Error('舊密碼錯誤，無法解開資料')
+      }
+
+      if (isFirebaseConfigured()) {
+        const auth = getFirebaseAuth()
+        const firebaseUser = auth.currentUser
+        if (!firebaseUser || firebaseUser.uid !== currentUser.id) {
+          throw new Error('登入狀態已失效，請重新登入')
+        }
+        await reauthenticateCloudUser(firebaseUser, currentPassword)
+      }
+
+      const newKey = await deriveDataKey(currentPassword, meta.dataSalt, meta.dataKeyIterations)
+      const payload = await reencryptUserPayload(currentUser.id, oldKey, newKey)
+      if (payload && isFirebaseConfigured()) {
+        try {
+          await saveCloudUserDoc(currentUser.id, {
+            username: meta.username,
+            loginUsername: meta.loginUsername || meta.username,
+            recoveryEmail: meta.recoveryEmail,
+            dataSalt: meta.dataSalt,
+            dataKeyIterations: meta.dataKeyIterations,
+            payload,
+            updatedAt: Date.now(),
+            createdAt: meta.createdAt,
+          })
+        } catch (error) {
+          if (!isCloudPermissionDenied(error)) throw new Error(mapFirebaseAuthError(error))
+        }
+      }
+      await setUnlockedKey(currentUser.id, newKey)
+    },
+    [currentUser, setUnlockedKey],
   )
 
   const login = useCallback(
@@ -821,6 +1235,8 @@ export function useAuth() {
     clearCloudMeta(currentUser.id)
     if (isFirebaseConfigured()) {
       try {
+        const loginName = currentUser.loginUsername || currentUser.username
+        await deleteUsernameIndex(loginName)
         await deleteCloudUserDoc(currentUser.id)
         await signOut(getFirebaseAuth())
       } catch {
@@ -854,6 +1270,177 @@ export function useAuth() {
     setSession(null)
   }, [clearDataKey, currentUser])
 
+  const updateNickname = useCallback(
+    async (nickname: string) => {
+      if (!currentUser || currentUser.isGuest) {
+        throw new Error('訪客模式無法更改暱稱，請先登入正式帳號')
+      }
+      const normalized = validateNickname(nickname)
+      if (normalized === currentUser.username) return
+
+      if (isFirebaseConfigured()) {
+        const auth = getFirebaseAuth()
+        const firebaseUser = auth.currentUser
+        if (!firebaseUser || firebaseUser.uid !== currentUser.id) {
+          throw new Error('登入狀態已失效，請重新登入')
+        }
+        if (!dataCryptoKey) throw new Error('登入狀態已失效，請重新登入')
+
+        const meta = loadCloudMeta(firebaseUser.uid)
+        if (!meta) throw new Error('找不到帳號資料，請重新登入')
+
+        try {
+          await updateProfile(firebaseUser, { displayName: normalized })
+        } catch (error) {
+          throw new Error(mapFirebaseAuthError(error))
+        }
+
+        const nextMeta: CloudMeta = {
+          ...meta,
+          username: normalized,
+          loginUsername: meta.loginUsername || meta.username,
+        }
+        saveCloudMeta(nextMeta)
+
+        const localPayload = localStorage.getItem(storageDataKey(firebaseUser.uid))
+        try {
+          await saveCloudUserDoc(firebaseUser.uid, {
+            username: normalized,
+            loginUsername: nextMeta.loginUsername,
+            recoveryEmail: nextMeta.recoveryEmail,
+            dataSalt: nextMeta.dataSalt,
+            dataKeyIterations: nextMeta.dataKeyIterations,
+            payload:
+              localPayload ??
+              (await encryptJson(dataCryptoKey, {
+                folders: [],
+                projects: [],
+                updatedAt: Date.now(),
+              })),
+            updatedAt: Date.now(),
+            createdAt: nextMeta.createdAt,
+          })
+        } catch (error) {
+          if (!isCloudPermissionDenied(error)) throw new Error(mapFirebaseAuthError(error))
+        }
+
+        setCloudUsername(normalized)
+        return
+      }
+
+      const existing = loadUsers()
+      const user = existing.find((item) => item.id === currentUser.id)
+      if (!user) throw new Error('找不到帳號資料，請重新登入')
+
+      const nextUser: AuthUser = { ...user, nickname: normalized }
+      const nextUsers = existing.map((item) => (item.id === user.id ? nextUser : item))
+      saveUsers(nextUsers)
+      setUsers(nextUsers)
+    },
+    [currentUser, dataCryptoKey],
+  )
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!currentUser || currentUser.isGuest) {
+        throw new Error('訪客模式無法更改密碼，請先登入正式帳號')
+      }
+      if (!currentPassword) throw new Error('請輸入目前密碼')
+      validatePassword(newPassword)
+      if (currentPassword === newPassword) {
+        throw new Error('新密碼不可與目前密碼相同')
+      }
+      if (!dataCryptoKey) throw new Error('登入狀態已失效，請重新登入')
+
+      if (isFirebaseConfigured()) {
+        const auth = getFirebaseAuth()
+        const firebaseUser = auth.currentUser
+        if (!firebaseUser || firebaseUser.uid !== currentUser.id) {
+          throw new Error('登入狀態已失效，請重新登入')
+        }
+        const meta = loadCloudMeta(firebaseUser.uid)
+        if (!meta) throw new Error('找不到帳號資料，請重新登入')
+
+        let oldKey: CryptoKey
+        try {
+          oldKey = await deriveDataKey(currentPassword, meta.dataSalt, meta.dataKeyIterations)
+          const raw = localStorage.getItem(storageDataKey(firebaseUser.uid))
+          if (raw) {
+            const object = tryParseJsonObject(raw)
+            if (object && isEncryptedBlob(object)) {
+              await decryptJson(oldKey, raw)
+            }
+          }
+        } catch {
+          throw new Error('目前密碼錯誤')
+        }
+
+        await reauthenticateCloudUser(firebaseUser, currentPassword)
+
+        try {
+          await updatePassword(firebaseUser, newPassword)
+        } catch (error) {
+          throw new Error(mapFirebaseAuthError(error))
+        }
+
+        const newKey = await deriveDataKey(newPassword, meta.dataSalt, meta.dataKeyIterations)
+        const payload = await reencryptUserPayload(firebaseUser.uid, oldKey, newKey)
+        if (payload) {
+          try {
+            await saveCloudUserDoc(firebaseUser.uid, {
+              username: meta.username,
+              loginUsername: meta.loginUsername || meta.username,
+              recoveryEmail: meta.recoveryEmail,
+              dataSalt: meta.dataSalt,
+              dataKeyIterations: meta.dataKeyIterations,
+              payload,
+              updatedAt: Date.now(),
+              createdAt: meta.createdAt,
+            })
+          } catch (error) {
+            if (!isCloudPermissionDenied(error)) throw new Error(mapFirebaseAuthError(error))
+          }
+        }
+        await setUnlockedKey(firebaseUser.uid, newKey)
+        return
+      }
+
+      const existing = loadUsers()
+      const user = existing.find((item) => item.id === currentUser.id)
+      if (!user) throw new Error('找不到帳號資料，請重新登入')
+
+      const ok = await verifyPassword(
+        currentPassword,
+        user.salt,
+        user.passwordHash,
+        user.kdfIterations,
+      )
+      if (!ok) throw new Error('目前密碼錯誤')
+
+      const oldKey = await deriveDataKey(
+        currentPassword,
+        user.dataSalt,
+        user.dataKeyIterations,
+      )
+      const newSalt = createSalt()
+      const newHash = await hashPassword(newPassword, newSalt, PBKDF2_ITERATIONS)
+      const nextUser: AuthUser = {
+        ...user,
+        salt: newSalt,
+        passwordHash: newHash,
+        kdfIterations: PBKDF2_ITERATIONS,
+      }
+      const newKey = await deriveDataKey(newPassword, nextUser.dataSalt, nextUser.dataKeyIterations)
+      await reencryptUserPayload(user.id, oldKey, newKey)
+
+      const nextUsers = existing.map((item) => (item.id === user.id ? nextUser : item))
+      saveUsers(nextUsers)
+      setUsers(nextUsers)
+      await setUnlockedKey(user.id, newKey)
+    },
+    [currentUser, dataCryptoKey, setUnlockedKey],
+  )
+
   return {
     ready,
     users,
@@ -865,6 +1452,11 @@ export function useAuth() {
     },
     register,
     login,
+    requestPasswordReset,
+    updateRecoveryEmail,
+    repairDataAfterPasswordReset,
+    updateNickname,
+    changePassword,
     logout: () => {
       void logout()
     },

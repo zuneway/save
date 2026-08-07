@@ -78,7 +78,7 @@ export interface AddEntryInput {
   date?: string
 }
 
-export type PlannedDayDepositKind = 'early' | 'makeup'
+export type PlannedDayDepositKind = 'early' | 'makeup' | 'today'
 
 export interface UpdateRandomDepositInput {
   enabled: boolean

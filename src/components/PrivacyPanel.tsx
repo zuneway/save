@@ -1,14 +1,21 @@
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isFirebaseConfigured } from '../lib/firebase'
+import { PASSWORD_MIN_LENGTH } from '../utils/authCrypto'
+import { isValidRecoveryEmail } from '../utils/cloudAccount'
 
 interface PrivacyPanelProps {
   open: boolean
   signedIn: boolean
   isGuest: boolean
   username: string
+  loginUsername?: string
+  recoveryEmail?: string
   syncState?: 'idle' | 'syncing' | 'synced' | 'offline'
   onClose: () => void
+  onUpdateNickname: (nickname: string) => Promise<void>
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  onUpdateRecoveryEmail: (currentPassword: string, email: string) => Promise<void>
   onWipeCurrentData: () => void
   onWipeAllLocalData: () => void
 }
@@ -18,13 +25,53 @@ export function PrivacyPanel({
   signedIn,
   isGuest,
   username,
+  loginUsername,
+  recoveryEmail,
   syncState = 'idle',
   onClose,
+  onUpdateNickname,
+  onChangePassword,
+  onUpdateRecoveryEmail,
   onWipeCurrentData,
   onWipeAllLocalData,
 }: PrivacyPanelProps) {
   const titleId = useId()
   const cloudEnabled = isFirebaseConfigured()
+  const canEditAccount = signedIn && !isGuest
+
+  const [nickname, setNickname] = useState(username)
+  const [nicknameBusy, setNicknameBusy] = useState(false)
+  const [nicknameMsg, setNicknameMsg] = useState<string | null>(null)
+  const [nicknameError, setNicknameError] = useState<string | null>(null)
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  const [passwordMsg, setPasswordMsg] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const [recoveryInput, setRecoveryInput] = useState(recoveryEmail ?? '')
+  const [recoveryPassword, setRecoveryPassword] = useState('')
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
+  const [recoveryMsg, setRecoveryMsg] = useState<string | null>(null)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setNickname(username)
+    setNicknameMsg(null)
+    setNicknameError(null)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordMsg(null)
+    setPasswordError(null)
+    setRecoveryInput(recoveryEmail ?? '')
+    setRecoveryPassword('')
+    setRecoveryMsg(null)
+    setRecoveryError(null)
+  }, [open, username, recoveryEmail])
 
   useEffect(() => {
     if (!open) return
@@ -50,6 +97,70 @@ export function PrivacyPanel({
               ? '雲端同步已啟用'
               : '雲端尚未設定'
 
+  const accountLoginName = loginUsername || username
+
+  const submitNickname = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEditAccount || nicknameBusy) return
+    setNicknameMsg(null)
+    setNicknameError(null)
+    setNicknameBusy(true)
+    try {
+      await onUpdateNickname(nickname)
+      setNicknameMsg('暱稱已更新')
+    } catch (error) {
+      setNicknameError(error instanceof Error ? error.message : '更新暱稱失敗')
+    } finally {
+      setNicknameBusy(false)
+    }
+  }
+
+  const submitPassword = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEditAccount || passwordBusy) return
+    setPasswordMsg(null)
+    setPasswordError(null)
+    if (newPassword !== confirmPassword) {
+      setPasswordError('兩次新密碼不一致')
+      return
+    }
+    setPasswordBusy(true)
+    try {
+      await onChangePassword(currentPassword, newPassword)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordMsg('密碼已更新；其他裝置請使用新密碼重新登入')
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : '更改密碼失敗')
+    } finally {
+      setPasswordBusy(false)
+    }
+  }
+
+  const submitRecoveryEmail = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEditAccount || recoveryBusy) return
+    setRecoveryMsg(null)
+    setRecoveryError(null)
+    if (!isValidRecoveryEmail(recoveryInput)) {
+      setRecoveryError('救援信箱格式不正確，請輸入有效的電子郵件地址')
+      return
+    }
+    setRecoveryBusy(true)
+    try {
+      await onUpdateRecoveryEmail(recoveryPassword, recoveryInput)
+      setRecoveryPassword('')
+      setRecoveryMsg(
+        recoveryEmail ? '救援信箱已更新' : `救援信箱已新增（${recoveryInput.trim()}），可用於忘記密碼`,
+      )
+    } catch (error) {
+      setRecoveryError(error instanceof Error ? error.message : '更新救援信箱失敗')
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
   return createPortal(
     <div className="modal-backdrop privacy-backdrop" onClick={onClose}>
       <div
@@ -60,7 +171,7 @@ export function PrivacyPanel({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h2 id={titleId}>資料與個資保護</h2>
+          <h2 id={titleId}>一般設定</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="關閉">
             ×
           </button>
@@ -74,9 +185,155 @@ export function PrivacyPanel({
                 ? '尚未登入'
                 : isGuest
                   ? `帳號：${username}（訪客模式，僅存本機）`
-                  : `帳號：${username}（正式帳號，雲端同步）`}
+                  : `暱稱：${username}（正式帳號，雲端同步）`}
             </p>
+            {canEditAccount && accountLoginName ? (
+              <p>登入帳號：{accountLoginName}</p>
+            ) : null}
             {syncLabel ? <p>{syncLabel}</p> : null}
+          </section>
+
+          <section className="privacy-section">
+            <h3>更改暱稱</h3>
+            {canEditAccount ? (
+              <form className="modal-form settings-form" onSubmit={submitNickname}>
+                <label className="field">
+                  <span>暱稱</span>
+                  <input
+                    type="text"
+                    value={nickname}
+                    onChange={(event) => setNickname(event.target.value)}
+                    placeholder="顯示在左上角的名稱"
+                    maxLength={32}
+                    required
+                    disabled={nicknameBusy}
+                  />
+                </label>
+                {cloudEnabled ? (
+                  <p className="field-hint">僅變更顯示名稱；登入仍請使用「{accountLoginName}」。</p>
+                ) : (
+                  <p className="field-hint">暱稱會顯示在左上角帳號列。</p>
+                )}
+                {nicknameError ? <p className="settings-form-error">{nicknameError}</p> : null}
+                {nicknameMsg ? <p className="settings-form-success">{nicknameMsg}</p> : null}
+                <button
+                  type="submit"
+                  className="button button-secondary"
+                  disabled={nicknameBusy || nickname.trim() === username}
+                >
+                  {nicknameBusy ? '更新中…' : '儲存暱稱'}
+                </button>
+              </form>
+            ) : (
+              <p>{signedIn ? '訪客模式無法更改暱稱，請先登入正式帳號。' : '請先登入後再更改暱稱。'}</p>
+            )}
+          </section>
+
+          <section className="privacy-section">
+            <h3>更改密碼</h3>
+            {canEditAccount ? (
+              <form className="modal-form settings-form" onSubmit={submitPassword}>
+                <label className="field">
+                  <span>目前密碼</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    placeholder="輸入目前密碼"
+                    required
+                    disabled={passwordBusy}
+                  />
+                </label>
+                <label className="field">
+                  <span>新密碼</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    placeholder={`至少 ${PASSWORD_MIN_LENGTH} 個字元`}
+                    required
+                    minLength={PASSWORD_MIN_LENGTH}
+                    disabled={passwordBusy}
+                  />
+                </label>
+                <label className="field">
+                  <span>確認新密碼</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="再輸入一次新密碼"
+                    required
+                    minLength={PASSWORD_MIN_LENGTH}
+                    disabled={passwordBusy}
+                  />
+                </label>
+                {passwordError ? <p className="settings-form-error">{passwordError}</p> : null}
+                {passwordMsg ? <p className="settings-form-success">{passwordMsg}</p> : null}
+                <button type="submit" className="button button-secondary" disabled={passwordBusy}>
+                  {passwordBusy ? '更新中…' : '更新密碼'}
+                </button>
+              </form>
+            ) : (
+              <p>{signedIn ? '訪客模式無法更改密碼，請先登入正式帳號。' : '請先登入後再更改密碼。'}</p>
+            )}
+          </section>
+
+          <section className="privacy-section">
+            <h3>救援信箱</h3>
+            {canEditAccount && cloudEnabled ? (
+              <form className="modal-form settings-form" onSubmit={submitRecoveryEmail}>
+                <p className="field-hint">
+                  {recoveryEmail
+                    ? `目前救援信箱：${recoveryEmail}`
+                    : '尚未設定。設定後可用於「忘記密碼」重設。'}
+                </p>
+                <label className="field">
+                  <span>{recoveryEmail ? '新的救援信箱' : '救援信箱'}</span>
+                  <input
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={recoveryInput}
+                    onChange={(event) => {
+                      setRecoveryInput(event.target.value)
+                      if (recoveryError) setRecoveryError(null)
+                    }}
+                    placeholder="name@example.com"
+                    required
+                    disabled={recoveryBusy}
+                  />
+                </label>
+                <label className="field">
+                  <span>目前密碼（確認身分）</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={recoveryPassword}
+                    onChange={(event) => setRecoveryPassword(event.target.value)}
+                    placeholder="輸入目前密碼"
+                    required
+                    disabled={recoveryBusy}
+                  />
+                </label>
+                {recoveryError ? <p className="settings-form-error">{recoveryError}</p> : null}
+                {recoveryMsg ? <p className="settings-form-success">{recoveryMsg}</p> : null}
+                <button type="submit" className="button button-secondary" disabled={recoveryBusy}>
+                  {recoveryBusy ? '更新中…' : recoveryEmail ? '更改救援信箱' : '新增救援信箱'}
+                </button>
+              </form>
+            ) : (
+              <p>
+                {!signedIn
+                  ? '請先登入後再設定救援信箱。'
+                  : isGuest
+                    ? '訪客模式無法設定救援信箱，請先登入正式帳號。'
+                    : '雲端尚未設定，無法使用救援信箱。'}
+              </p>
+            )}
           </section>
 
           <section className="privacy-section">

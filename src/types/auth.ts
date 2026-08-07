@@ -3,6 +3,8 @@ export const GUEST_USER_ID = 'guest'
 export interface AuthUser {
   id: string
   username: string
+  /** Display name; falls back to username when absent */
+  nickname?: string
   passwordHash: string
   /** Salt for password verification hash */
   salt: string
@@ -22,6 +24,11 @@ export interface AuthSession {
 
 export interface CurrentUser {
   id: string
+  /** Display name shown in the UI */
   username: string
+  /** Account name used for login (may differ from display nickname) */
+  loginUsername?: string
+  /** Bound recovery email for password reset, if any */
+  recoveryEmail?: string
   isGuest: boolean
 }
