@@ -1081,18 +1081,25 @@
 }
 
 .create-project-backdrop {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  justify-content: center;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .create-project-modal {
   display: flex;
   flex-direction: column;
   width: min(100%, 480px);
+  max-width: 100%;
   max-height: min(92dvh, 920px);
+  min-width: 0;
   padding: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 .create-project-modal .modal-header {
@@ -1102,47 +1109,94 @@
 }
 
 .create-project-form {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow: hidden;
 }
 
 .modal-scroll-body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   display: grid;
   gap: 16px;
   padding: 4px 20px 16px;
 }
 
+.modal-scroll-body > *,
+.modal-scroll-body fieldset,
+.modal-scroll-body .field,
+.modal-scroll-body .deadline-toggle,
+.modal-scroll-body .quick-chip-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.modal-scroll-body fieldset {
+  min-inline-size: 0;
+}
+
 .modal-actions-sticky {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
   margin-top: 0;
   padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--line);
   background: var(--field-bg);
   justify-content: stretch;
+  box-shadow: 0 -8px 20px color-mix(in srgb, var(--shadow) 35%, transparent);
 }
 
 .modal-actions-sticky .button {
   flex: 1;
+  min-width: 0;
 }
 
 @media (max-width: 640px) {
   .create-project-backdrop {
-    align-items: flex-end;
+    justify-content: flex-end;
+    align-items: stretch;
     padding: 0;
+    overflow: hidden;
   }
 
   .create-project-modal {
     width: 100%;
-    max-height: min(94dvh, 100%);
+    max-width: 100%;
+    height: 94dvh;
+    max-height: 94dvh;
     border-radius: 22px 22px 0 0;
+  }
+
+  .plan-toggle-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .plan-toggle-4 .deadline-option {
+    padding: 10px 4px;
+    font-size: 0.82rem;
+  }
+
+  .modal-scroll-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .modal-actions-sticky {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 

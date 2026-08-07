@@ -377,7 +377,7 @@ export function CreatePeriodicPlanModal({
             {preview ? <p className="plan-preview">{preview}</p> : null}
           </div>
 
-          <div className="modal-actions">
+          <div className="modal-actions modal-actions-sticky">
             <button type="button" className="button button-secondary" onClick={onClose}>
               取消
             </button>

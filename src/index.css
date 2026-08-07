@@ -288,6 +288,7 @@ html[data-bg]:not([data-bg='none']) {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
@@ -296,6 +297,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overscroll-behavior-y: none;
+  touch-action: manipulation;
   background: transparent;
   color: inherit;
 }
