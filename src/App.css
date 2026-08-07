@@ -733,13 +733,29 @@
 }
 
 .home-tips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: 14px;
-  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.home-tips-text {
+  margin: 0;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.home-tips-dismiss {
+  flex-shrink: 0;
 }
 
 .home-tips-link {

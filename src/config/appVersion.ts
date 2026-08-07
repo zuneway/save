@@ -7,7 +7,7 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '2.2.1'
+export const APP_VERSION = '2.2.2'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 

@@ -14,6 +14,7 @@ import { AccountMenu } from './AccountMenu'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreatePeriodicPlanModal } from './CreatePeriodicPlanModal'
+import { HomeTips, PERIODIC_HOME_TIPS_KEY } from './HomeTips'
 import { NoteEditModal } from './NoteEditModal'
 import { RenameModal } from './RenameModal'
 import { SelectionMenu } from './SelectionMenu'
@@ -461,9 +462,9 @@ export function PeriodicSavingsScreen({
           </div>
         ) : (
           <>
-            <p className="home-tips">
+            <HomeTips storageKey={PERIODIC_HOME_TIPS_KEY}>
               點擊右上「＋」新增計畫或資料夾；可拖曳計畫到資料夾整理。
-            </p>
+            </HomeTips>
             <div className="content-stack">
               {folders.length > 0 ? (
                 <section

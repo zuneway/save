@@ -13,6 +13,7 @@ import { AccountMenu } from './AccountMenu'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreateProjectModal } from './CreateProjectModal'
+import { HomeTips, SAVINGS_HOME_TIPS_KEY } from './HomeTips'
 import { NoteEditModal } from './NoteEditModal'
 import { RenameModal } from './RenameModal'
 import { SelectionMenu } from './SelectionMenu'
@@ -543,12 +544,12 @@ export function HomeScreen({
           </div>
         ) : (
           <>
-            <p className="home-tips">
+            <HomeTips storageKey={SAVINGS_HOME_TIPS_KEY}>
               點擊右上「＋」新增存錢計畫專案 或
               <button type="button" className="home-tips-link" onClick={onOpenUsageGuide}>
                 點擊查看使用教學
               </button>
-            </p>
+            </HomeTips>
             <div className="content-stack">
             {folders.length > 0 && (
               <section
