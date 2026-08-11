@@ -25,14 +25,10 @@ export function BrandDecor() {
 }
 
 export function BrandMark({ size = 40 }: { size?: number }) {
+  const src = `${import.meta.env.BASE_URL}logo-128.png`
   return (
-    <span className="brand-mark" style={{ width: size, height: size }} aria-hidden="true">
-      <svg viewBox="0 0 48 48" fill="none">
-        <path
-          d="M24 10.5 26.4 19.2l9.1.5-7.2 5.7 2.5 8.7L24 29.2l-6.8 4.9 2.5-8.7-7.2-5.7 9.1-.5z"
-          fill="currentColor"
-        />
-      </svg>
+    <span className="brand-mark brand-mark-img" style={{ width: size, height: size }} aria-hidden="true">
+      <img src={src} alt="" width={size} height={size} decoding="async" />
     </span>
   )
 }

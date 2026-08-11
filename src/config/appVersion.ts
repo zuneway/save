@@ -7,14 +7,13 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '2.5.0'
+export const APP_VERSION = '2.5.1'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 
 /** Feature notes for the current MAJOR/MINOR release (shown after update). */
 export const APP_RELEASE_NOTES: string[] = [
-  '全站換成更年輕的「存星」風格：粉彩配色、星星裝飾與新字體',
-  '空白頁與登入頁加入插圖與動效，整體更貼近人心',
+  '更新存星 Logo：更圓潤可愛的星星圖示',
 ]
 
 export type VersionBumpType = 'major' | 'minor' | 'patch' | 'none' | 'unknown'

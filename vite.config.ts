@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
       emitVersionJson(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['apple-touch-icon.png', 'vite.svg', 'version.json'],
+        includeAssets: ['apple-touch-icon.png', 'vite.svg', 'version.json', 'logo-128.png', 'logo-64.png'],
         manifest: {
           name: APP_NAME,
           short_name: APP_NAME,
