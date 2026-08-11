@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { APP_DESCRIPTION, APP_NAME } from './src/config/brand'
 import { APP_RELEASE_NOTES, APP_VERSION } from './src/config/appVersion'
 
 function emitVersionJson(): Plugin {
@@ -33,9 +34,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['apple-touch-icon.png', 'vite.svg', 'version.json'],
         manifest: {
-          name: '存錢系統',
-          short_name: '存錢系統',
-          description: '個人存錢追蹤，支援資料夾、每日隨機分配與補存入',
+          name: APP_NAME,
+          short_name: APP_NAME,
+          description: APP_DESCRIPTION,
           theme_color: '#0f766e',
           background_color: '#f0fdfa',
           display: 'standalone',

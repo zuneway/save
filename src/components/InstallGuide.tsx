@@ -57,7 +57,7 @@ export function InstallGuide({ open, onClose }: InstallGuideProps) {
             <li>用 <strong>Safari</strong> 開啟本網站（其他瀏覽器可能沒有這個選項）。</li>
             <li>點下方中間的 <strong>分享</strong> 按鈕（方框加向上箭頭）。</li>
             <li>往下找到並點選 <strong>加入主畫面</strong>。</li>
-            <li>名稱可保持「存錢系統」，再按右上角 <strong>加入</strong>。</li>
+            <li>名稱可保持「存星」，再按右上角 <strong>加入</strong>。</li>
             <li>回到手機主畫面，點新圖示即可使用。</li>
           </ol>
         </div>

@@ -585,7 +585,7 @@ export function PrivacyPanel({
               onClick={() => {
                 if (
                   window.confirm(
-                    '確定清除此裝置上所有存錢系統資料（含所有帳號、訪客、許願紀錄）？此操作無法復原。',
+                    '確定清除此裝置上所有存星資料（含所有帳號、訪客、許願紀錄）？此操作無法復原。',
                   )
                 ) {
                   onWipeAllLocalData()

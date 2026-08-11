@@ -40,7 +40,7 @@ export function PrivacyPolicyPanel({ open, onClose }: PrivacyPolicyPanelProps) {
           <section className="privacy-section">
             <h3>適用範圍</h3>
             <p>
-              本條款說明「存錢系統」與「定期儲蓄系統」（以下合稱「本服務」）如何蒐集、使用與保護您的資料。使用本服務即表示您已閱讀並瞭解本條款。
+              本條款說明「存星」與「定期儲蓄系統」（以下合稱「本服務」）如何蒐集、使用與保護您的資料。使用本服務即表示您已閱讀並瞭解本條款。
             </p>
           </section>
 

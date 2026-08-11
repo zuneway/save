@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { APP_NAME, APP_TAGLINE_EN } from '../config/brand'
 import { PASSWORD_MIN_LENGTH } from '../utils/authCrypto'
 import { isValidRecoveryEmail } from '../utils/cloudAccount'
 
@@ -75,8 +76,8 @@ export function AuthScreen({
   return (
     <div className="auth-screen">
       <header className="auth-hero">
-        <p className="eyebrow">Savings Tracker</p>
-        <h1>存錢系統</h1>
+        <p className="eyebrow">{APP_TAGLINE_EN}</p>
+        <h1>{APP_NAME}</h1>
         <p className="subtitle">
           網頁版與主畫面版請登入同一個正式帳號，資料才會自動同步；訪客模式兩邊各自獨立。
         </p>

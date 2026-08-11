@@ -7,14 +7,13 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '2.3.1'
+export const APP_VERSION = '2.4.0'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 
 /** Feature notes for the current MAJOR/MINOR release (shown after update). */
 export const APP_RELEASE_NOTES: string[] = [
-  '使用教學、隱私條款、登出改由左上帳號選單開啟',
-  '存錢系統資料夾可刪除（內含專案會移到未分類）',
+  '品牌更名為「存星」——更短、更好記',
 ]
 
 export type VersionBumpType = 'major' | 'minor' | 'patch' | 'none' | 'unknown'

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { APP_NAME, APP_TAGLINE_EN } from '../config/brand'
 import type {
   CreateFolderInput,
   CreateProjectInput,
@@ -466,8 +467,8 @@ export function HomeScreen({
 
       <header className="page-header">
         <div>
-          <p className="eyebrow">Savings Tracker</p>
-          <h1>存錢系統</h1>
+          <p className="eyebrow">{APP_TAGLINE_EN}</p>
+          <h1>{APP_NAME}</h1>
           <p className="subtitle">{homeQuote}</p>
         </div>
       </header>

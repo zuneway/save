@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { APP_NAME } from '../config/brand'
 
 export type AppSystemId = 'home' | 'periodic'
 
@@ -85,7 +86,7 @@ export function AccountMenu({
             }}
           >
             <span className="account-menu-item-text">
-              <strong>存錢系統</strong>
+              <strong>{APP_NAME}</strong>
               <small>目標導向存錢專案</small>
             </span>
             {activeSystem === 'home' ? <span className="account-menu-current">使用中</span> : null}
