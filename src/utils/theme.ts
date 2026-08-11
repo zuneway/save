@@ -14,33 +14,33 @@ export interface ThemeOption {
 export const THEME_OPTIONS: ThemeOption[] = [
   {
     id: 'warm',
-    label: '暖色調',
-    description: '柔和桃橘，溫暖親切',
-    swatch: ['#ffe8dc', '#e07a4d', '#4a3028'],
+    label: '星光粉',
+    description: '珊瑚粉與薄荷，年輕溫暖',
+    swatch: ['#fff5f8', '#ff5c7a', '#2c2438'],
   },
   {
     id: 'cool',
-    label: '冷色調',
-    description: '清爽藍青，冷靜俐落',
-    swatch: ['#e0f2fe', '#0284c7', '#0f2744'],
+    label: '天空藍',
+    description: '清爽藍青，輕盈俐落',
+    swatch: ['#e0f2fe', '#0ea5e9', '#0f2744'],
   },
   {
     id: 'mint',
-    label: '清新綠',
-    description: '薄荷青綠，清新舒適',
-    swatch: ['#d1fae5', '#0f766e', '#134e4a'],
+    label: '薄荷绿',
+    description: '清新綠意，舒服放鬆',
+    swatch: ['#d1fae5', '#10b981', '#134e4a'],
   },
   {
     id: 'dusk',
     label: '暮光紫',
-    description: '淡紫暮色，柔和沉靜',
-    swatch: ['#ede9fe', '#7c3aed', '#312e81'],
+    description: '柔紫粉調，略帶潮流',
+    swatch: ['#f3e8ff', '#a855f7', '#3b2066'],
   },
   {
     id: 'midnight',
     label: '深夜模式',
     description: '深色介面，護眼夜間',
-    swatch: ['#0f172a', '#38bdf8', '#1e293b'],
+    swatch: ['#0f172a', '#fb7185', '#1e293b'],
   },
 ]
 

@@ -14,6 +14,7 @@ import {
   markUsageGuideSeen,
 } from './components/UsageGuide'
 import { UpdatePrompt, VersionBadge, WhatsNewPrompt } from './components/UpdatePrompt'
+import { BrandDecor } from './components/BrandDecor'
 import { useAuth } from './hooks/useAuth'
 import { useSavingsProjects } from './hooks/useSavingsProjects'
 import './App.css'
@@ -327,17 +328,22 @@ function App() {
 
   if (!ready) {
     return (
-      <main className="app-shell">
-        <p className="auth-loading">載入中…</p>
-        <VersionBadge />
-        <UpdatePrompt />
-        <WhatsNewPrompt />
-      </main>
+      <>
+        <BrandDecor />
+        <main className="app-shell">
+          <p className="auth-loading">載入中…</p>
+          <VersionBadge />
+          <UpdatePrompt />
+          <WhatsNewPrompt />
+        </main>
+      </>
     )
   }
 
   return (
-    <main className="app-shell">
+    <>
+      <BrandDecor />
+      <main className="app-shell">
       {currentUser ? (
         <AuthenticatedApp
           key={currentUser.id}
@@ -391,6 +397,7 @@ function App() {
       <UpdatePrompt />
       <WhatsNewPrompt />
     </main>
+    </>
   )
 }
 

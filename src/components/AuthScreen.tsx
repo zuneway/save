@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BrandMark } from './BrandDecor'
 import { APP_NAME, APP_TAGLINE_EN } from '../config/brand'
 import { PASSWORD_MIN_LENGTH } from '../utils/authCrypto'
 import { isValidRecoveryEmail } from '../utils/cloudAccount'
@@ -77,9 +78,12 @@ export function AuthScreen({
     <div className="auth-screen">
       <header className="auth-hero">
         <p className="eyebrow">{APP_TAGLINE_EN}</p>
-        <h1>{APP_NAME}</h1>
+        <div className="brand-heading">
+          <BrandMark size={48} />
+          <h1 className="brand-display">{APP_NAME}</h1>
+        </div>
         <p className="subtitle">
-          網頁版與主畫面版請登入同一個正式帳號，資料才會自動同步；訪客模式兩邊各自獨立。
+          把小錢存成大夢想。網頁與主畫面請登入同一個帳號，資料才會一起跟著你走。
         </p>
       </header>
 

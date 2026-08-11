@@ -101,7 +101,7 @@ export function AccountMenu({
             }}
           >
             <span className="account-menu-item-text">
-              <strong>定期儲蓄系統</strong>
+              <strong>定期儲蓄</strong>
               <small>自動規劃長期儲蓄</small>
             </span>
             {activeSystem === 'periodic' ? (

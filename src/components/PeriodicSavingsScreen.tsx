@@ -11,6 +11,7 @@ import {
   getPeriodicTargetAmount,
 } from '../utils/periodic'
 import { AccountMenu } from './AccountMenu'
+import { BrandMark } from './BrandDecor'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreatePeriodicPlanModal } from './CreatePeriodicPlanModal'
@@ -379,8 +380,11 @@ export function PeriodicSavingsScreen({
 
       <header className="page-header">
         <div>
-          <p className="eyebrow">Recurring Savings</p>
-          <h1>定期儲蓄系統</h1>
+          <p className="eyebrow">keep it steady</p>
+          <div className="brand-heading">
+            <BrandMark size={42} />
+            <h1 className="brand-display">定期儲蓄</h1>
+          </div>
           <p className="subtitle">{homeQuote}</p>
         </div>
       </header>
