@@ -47,7 +47,7 @@
   --page-base-bottom: #f3fffb;
   --progress-mid: #fda4af;
   --today-row: #fff1f5;
-  --decor-star: rgba(255, 92, 122, 0.28);
+  --decor-star: rgba(255, 92, 122, 0.55);
   --decor-blob-a: rgba(255, 140, 168, 0.35);
   --decor-blob-b: rgba(52, 211, 153, 0.22);
   --decor-blob-c: rgba(251, 191, 36, 0.2);
@@ -100,7 +100,7 @@
   --page-base-bottom: #f0fdfa;
   --progress-mid: #7dd3fc;
   --today-row: #eff6ff;
-  --decor-star: rgba(14, 165, 233, 0.28);
+  --decor-star: rgba(14, 165, 233, 0.5);
   --decor-blob-a: rgba(56, 189, 248, 0.32);
   --decor-blob-b: rgba(45, 212, 191, 0.22);
   --decor-blob-c: rgba(147, 197, 253, 0.28);
@@ -153,7 +153,7 @@
   --page-base-bottom: #fffbeb;
   --progress-mid: #5eead4;
   --today-row: #ecfdf5;
-  --decor-star: rgba(16, 185, 129, 0.3);
+  --decor-star: rgba(16, 185, 129, 0.5);
   --decor-blob-a: rgba(52, 211, 153, 0.3);
   --decor-blob-b: rgba(110, 231, 183, 0.25);
   --decor-blob-c: rgba(253, 230, 138, 0.22);
@@ -206,7 +206,7 @@
   --page-base-bottom: #fff1f5;
   --progress-mid: #d8b4fe;
   --today-row: #faf5ff;
-  --decor-star: rgba(168, 85, 247, 0.28);
+  --decor-star: rgba(168, 85, 247, 0.5);
   --decor-blob-a: rgba(192, 132, 252, 0.3);
   --decor-blob-b: rgba(244, 114, 182, 0.2);
   --decor-blob-c: rgba(167, 139, 250, 0.25);
@@ -259,7 +259,7 @@
   --page-base-bottom: #111827;
   --progress-mid: #fb7185;
   --today-row: #3f1d2e;
-  --decor-star: rgba(251, 113, 133, 0.35);
+  --decor-star: rgba(251, 113, 133, 0.55);
   --decor-blob-a: rgba(251, 113, 133, 0.18);
   --decor-blob-b: rgba(52, 211, 153, 0.12);
   --decor-blob-c: rgba(56, 189, 248, 0.12);
@@ -273,9 +273,11 @@
     color-mix(in srgb, var(--page-base-mid) 62%, transparent) 48%,
     color-mix(in srgb, var(--page-base-bottom) 72%, transparent) 100%
   );
-  --page-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cpath fill='%23ff5c7a' fill-opacity='0.06' d='M36 8l2.2 8.4 8.8.5-7 5.5 2.4 8.3L36 25.8 29.6 30.7l2.4-8.3-7-5.5 8.8-.5z'/%3E%3C/svg%3E");
+  --page-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='580' viewBox='0 0 420 580'%3E%3Cg fill='%23ff5c7a'%3E%3Cpath fill-opacity='0.035' transform='translate(28 36) scale(0.9) rotate(-18 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.022' transform='translate(190 18) scale(0.35) rotate(32 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.04' transform='translate(340 70) scale(0.55) rotate(-40 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.018' transform='translate(96 150) scale(0.28) rotate(12 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.03' transform='translate(250 180) scale(0.7) rotate(48 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.025' transform='translate(48 260) scale(0.45) rotate(-55 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.02' transform='translate(360 240) scale(0.32) rotate(8 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.038' transform='translate(160 320) scale(1.05) rotate(-22 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.016' transform='translate(300 360) scale(0.24) rotate(60 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.028' transform='translate(70 430) scale(0.6) rotate(15 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.021' transform='translate(250 480) scale(0.4) rotate(-35 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3Cpath fill-opacity='0.033' transform='translate(370 500) scale(0.5) rotate(25 12 12)' d='M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'/%3E%3C/g%3E%3C/svg%3E");
+  --font-body: 'Outfit', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-display: 'Fraunces', 'Noto Sans TC', 'PingFang TC', serif;
 
-  font-family: 'Outfit', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
   color: var(--ink);
@@ -287,13 +289,38 @@
     radial-gradient(circle at 50% 100%, var(--page-spot-3) 0%, transparent 36%),
     linear-gradient(180deg, var(--page-base-top) 0%, var(--page-base-mid) 48%, var(--page-base-bottom) 100%);
   background-attachment: fixed;
-  background-size: 72px 72px, cover, cover, cover, cover;
+  background-size: 420px 580px, cover, cover, cover, cover;
   background-position: 0 0, center, center, center, center;
   background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-font='modern'] {
+  --font-body: 'Outfit', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-display: 'Fraunces', 'Noto Sans TC', 'PingFang TC', serif;
+}
+
+html[data-font='display'] {
+  --font-body: 'Outfit', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-display: 'Fraunces', 'Noto Serif TC', 'Noto Sans TC', serif;
+}
+
+html[data-font='rounded'] {
+  --font-body: 'Zen Maru Gothic', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-display: 'Zen Maru Gothic', 'Noto Sans TC', 'PingFang TC', sans-serif;
+}
+
+html[data-font='serif'] {
+  --font-body: 'Noto Serif TC', 'PingFang TC', 'Microsoft JhengHei', serif;
+  --font-display: 'Noto Serif TC', 'PingFang TC', serif;
+}
+
+html[data-font='soft'] {
+  --font-body: 'Nunito', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-display: 'Nunito', 'Noto Sans TC', 'PingFang TC', sans-serif;
 }
 
 html[data-bg]:not([data-bg='none']) {
@@ -303,6 +330,77 @@ html[data-bg]:not([data-bg='none']) {
     var(--page-bg-image);
   background-size: cover, cover, cover;
   background-repeat: no-repeat;
+}
+
+html[data-bg='night'],
+html[data-bg='galaxy'],
+html[data-bg='nebula'],
+html[data-bg='aurora'],
+html[data-bg='comet'] {
+  --page-bg-overlay: linear-gradient(
+    180deg,
+    rgba(5, 1, 15, 0.22) 0%,
+    rgba(10, 6, 28, 0.38) 48%,
+    rgba(18, 8, 24, 0.52) 100%
+  );
+  --page-spot-1: rgba(251, 113, 133, 0.1);
+  --page-spot-2: rgba(103, 232, 249, 0.08);
+  --page-spot-3: rgba(192, 132, 252, 0.12);
+}
+
+html[data-bg='night'] .brand-decor-star,
+html[data-bg='galaxy'] .brand-decor-star,
+html[data-bg='nebula'] .brand-decor-star,
+html[data-bg='aurora'] .brand-decor-star,
+html[data-bg='comet'] .brand-decor-star {
+  color: rgba(248, 250, 252, 0.75);
+}
+
+html[data-bg='night'] .brand-decor-blob-a,
+html[data-bg='galaxy'] .brand-decor-blob-a,
+html[data-bg='nebula'] .brand-decor-blob-a,
+html[data-bg='aurora'] .brand-decor-blob-a,
+html[data-bg='comet'] .brand-decor-blob-a {
+  background: rgba(244, 114, 182, 0.14);
+}
+
+html[data-bg='night'] .brand-decor-blob-b,
+html[data-bg='galaxy'] .brand-decor-blob-b,
+html[data-bg='nebula'] .brand-decor-blob-b,
+html[data-bg='aurora'] .brand-decor-blob-b,
+html[data-bg='comet'] .brand-decor-blob-b {
+  background: rgba(103, 232, 249, 0.1);
+}
+
+html[data-bg='night'] .brand-decor-blob-c,
+html[data-bg='galaxy'] .brand-decor-blob-c,
+html[data-bg='nebula'] .brand-decor-blob-c,
+html[data-bg='aurora'] .brand-decor-blob-c,
+html[data-bg='comet'] .brand-decor-blob-c {
+  background: rgba(167, 139, 250, 0.14);
+}
+
+html[data-bg='night'] .page-header,
+html[data-bg='night'] .auth-card,
+html[data-bg='night'] .project-card,
+html[data-bg='night'] .empty-state,
+html[data-bg='galaxy'] .page-header,
+html[data-bg='galaxy'] .auth-card,
+html[data-bg='galaxy'] .project-card,
+html[data-bg='galaxy'] .empty-state,
+html[data-bg='nebula'] .page-header,
+html[data-bg='nebula'] .auth-card,
+html[data-bg='nebula'] .project-card,
+html[data-bg='nebula'] .empty-state,
+html[data-bg='aurora'] .page-header,
+html[data-bg='aurora'] .auth-card,
+html[data-bg='aurora'] .project-card,
+html[data-bg='aurora'] .empty-state,
+html[data-bg='comet'] .page-header,
+html[data-bg='comet'] .auth-card,
+html[data-bg='comet'] .project-card,
+html[data-bg='comet'] .empty-state {
+  background: color-mix(in srgb, #fff 86%, transparent);
 }
 
 * {
@@ -345,7 +443,7 @@ textarea {
 h1,
 h2,
 .brand-display {
-  font-family: 'Fraunces', 'Noto Sans TC', 'PingFang TC', serif;
+  font-family: var(--font-display);
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
 }

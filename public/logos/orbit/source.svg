@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  <ellipse cx="256" cy="256" rx="150" ry="42" fill="none" stroke="#a5b4fc" stroke-width="16" transform="rotate(-18 256 256)" opacity="0.85"/>
+  <ellipse cx="256" cy="256" rx="150" ry="42" fill="none" stroke="#f9a8d4" stroke-width="6" transform="rotate(-18 256 256)" opacity="0.55"/>
+  <defs>
+    <linearGradient id="p" x1="180" y1="160" x2="330" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fda4af"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="92" fill="url(#p)"/>
+  <ellipse cx="230" cy="230" rx="24" ry="12" fill="white" opacity="0.4" transform="rotate(-28 230 230)"/>
+  <circle cx="140" cy="150" r="4" fill="white" opacity="0.8"/>
+  <circle cx="380" cy="180" r="5" fill="#67e8f9" opacity="0.85"/>
+  <circle cx="360" cy="360" r="3.5" fill="white" opacity="0.7"/>
+</svg>

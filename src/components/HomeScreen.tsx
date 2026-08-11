@@ -11,7 +11,7 @@ import { formatDeadlineSummary, getCurrentStageStatus, getRemainingDays } from '
 import { pickHomeQuote } from '../utils/homeQuotes'
 import { formatAmount } from '../utils/money'
 import { AccountMenu } from './AccountMenu'
-import { BrandMark, EmptyStarArt } from './BrandDecor'
+import { EmptyStarArt } from './BrandDecor'
 import { CreateFolderModal } from './CreateFolderModal'
 import { CreateMenu } from './CreateMenu'
 import { CreateProjectModal } from './CreateProjectModal'
@@ -469,10 +469,7 @@ export function HomeScreen({
       <header className="page-header">
         <div>
           <p className="eyebrow">{APP_TAGLINE_EN}</p>
-          <div className="brand-heading">
-            <BrandMark size={42} />
-            <h1 className="brand-display">{APP_NAME}</h1>
-          </div>
+          <h1 className="brand-display">{APP_NAME}</h1>
           <p className="subtitle">{homeQuote}</p>
         </div>
       </header>
@@ -492,7 +489,7 @@ export function HomeScreen({
         {!hasAnyContent ? (
           <div className="empty-state empty-state-start">
             <EmptyStarArt />
-            <h2>開始你的第一顆存星</h2>
+            <h2>開始你的第一筆慢存</h2>
             <p>可選日存、周存、月存，或自訂每幾天存一次。</p>
             <div className="empty-actions">
               <button

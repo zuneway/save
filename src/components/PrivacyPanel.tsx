@@ -1,11 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useBackground } from '../hooks/useBackground'
+import { useFont } from '../hooks/useFont'
+import { useLogo } from '../hooks/useLogo'
 import { useTheme } from '../hooks/useTheme'
 import { isFirebaseConfigured } from '../lib/firebase'
 import { PASSWORD_MIN_LENGTH } from '../utils/authCrypto'
 import { BACKGROUND_OPTIONS } from '../utils/background'
 import { isValidRecoveryEmail } from '../utils/cloudAccount'
+import { FONT_OPTIONS } from '../utils/font'
+import { LOGO_OPTIONS, logoPreviewUrl } from '../utils/logo'
 import { THEME_OPTIONS } from '../utils/theme'
 
 interface PrivacyPanelProps {
@@ -41,15 +45,21 @@ export function PrivacyPanel({
 }: PrivacyPanelProps) {
   const titleId = useId()
   const themeSectionId = useId()
+  const logoSectionId = useId()
+  const fontSectionId = useId()
   const backgroundSectionId = useId()
   const cloudEnabled = isFirebaseConfigured()
   const canEditAccount = signedIn && !isGuest
   const { theme, setTheme } = useTheme()
+  const { logo, setLogo } = useLogo()
+  const { font, setFont } = useFont()
   const { background, customPreview, setBackground, uploadBackground } = useBackground()
   const backgroundInputRef = useRef<HTMLInputElement>(null)
   const [backgroundBusy, setBackgroundBusy] = useState(false)
   const [backgroundError, setBackgroundError] = useState<string | null>(null)
   const [themeOpen, setThemeOpen] = useState(false)
+  const [logoOpen, setLogoOpen] = useState(false)
+  const [fontOpen, setFontOpen] = useState(false)
   const [backgroundOpen, setBackgroundOpen] = useState(false)
 
   const [nickname, setNickname] = useState(username)
@@ -333,6 +343,105 @@ export function PrivacyPanel({
             ) : null}
           </section>
 
+          <section className={`privacy-section settings-collapse ${logoOpen ? '' : 'is-collapsed'}`}>
+            <button
+              type="button"
+              className="settings-collapse-header"
+              aria-expanded={logoOpen}
+              aria-controls={logoSectionId}
+              onClick={() => setLogoOpen((value) => !value)}
+            >
+              <span className="panel-toggle" aria-hidden="true">
+                <span>{logoOpen ? '−' : '＋'}</span>
+              </span>
+              <span className="settings-collapse-title">
+                <span className="settings-collapse-heading">應用程式標誌</span>
+                <span className="field-hint">
+                  目前：{LOGO_OPTIONS.find((item) => item.id === logo)?.label ?? logo}
+                </span>
+              </span>
+            </button>
+            {logoOpen ? (
+              <div id={logoSectionId} className="settings-collapse-body">
+                <p className="field-hint">
+                  選擇標誌後會同步更新瀏覽器圖示與安裝用圖示。若已加到主畫面，部分手機需移除後再加入一次才會看到新圖示。
+                </p>
+                <div className="logo-picker" role="radiogroup" aria-label="應用程式標誌">
+                  {LOGO_OPTIONS.map((option) => {
+                    const selected = logo === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`logo-option ${selected ? 'is-selected' : ''}`}
+                        onClick={() => setLogo(option.id)}
+                      >
+                        <span className="logo-thumb" aria-hidden="true">
+                          <img src={logoPreviewUrl(option.id)} alt="" width={48} height={48} />
+                        </span>
+                        <span className="theme-option-text">
+                          <strong>{option.label}</strong>
+                          <small>{option.description}</small>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className={`privacy-section settings-collapse ${fontOpen ? '' : 'is-collapsed'}`}>
+            <button
+              type="button"
+              className="settings-collapse-header"
+              aria-expanded={fontOpen}
+              aria-controls={fontSectionId}
+              onClick={() => setFontOpen((value) => !value)}
+            >
+              <span className="panel-toggle" aria-hidden="true">
+                <span>{fontOpen ? '−' : '＋'}</span>
+              </span>
+              <span className="settings-collapse-title">
+                <span className="settings-collapse-heading">介面字體</span>
+                <span className="field-hint">
+                  目前：{FONT_OPTIONS.find((item) => item.id === font)?.label ?? font}
+                </span>
+              </span>
+            </button>
+            {fontOpen ? (
+              <div id={fontSectionId} className="settings-collapse-body">
+                <p className="field-hint">選擇介面文字風格；會保存在此裝置。</p>
+                <div className="font-picker" role="radiogroup" aria-label="介面字體">
+                  {FONT_OPTIONS.map((option) => {
+                    const selected = font === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`font-option ${selected ? 'is-selected' : ''}`}
+                        data-font-preview={option.id}
+                        onClick={() => setFont(option.id)}
+                      >
+                        <span className="font-sample" aria-hidden="true">
+                          {option.sample}
+                        </span>
+                        <span className="theme-option-text">
+                          <strong>{option.label}</strong>
+                          <small>{option.description}</small>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           <section
             className={`privacy-section settings-collapse ${backgroundOpen ? '' : 'is-collapsed'}`}
           >
@@ -585,7 +694,7 @@ export function PrivacyPanel({
               onClick={() => {
                 if (
                   window.confirm(
-                    '確定清除此裝置上所有存星資料（含所有帳號、訪客、許願紀錄）？此操作無法復原。',
+                    '確定清除此裝置上所有慢存資料（含所有帳號、訪客、許願紀錄）？此操作無法復原。',
                   )
                 ) {
                   onWipeAllLocalData()

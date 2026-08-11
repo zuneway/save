@@ -127,7 +127,7 @@ export function AccountMenu({
           >
             <span className="account-menu-item-text">
               <strong>一般設定</strong>
-              <small>色調、背景、暱稱與密碼</small>
+              <small>標誌、字體、色調、背景與帳號</small>
             </span>
           </button>
 

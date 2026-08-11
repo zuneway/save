@@ -7,13 +7,15 @@
  *
  * Bump APP_VERSION, APP_RELEASE_NOTES, and public/version.json together.
  */
-export const APP_VERSION = '2.5.1'
+export const APP_VERSION = '2.6.0'
 
 export const APP_VERSION_LABEL = `v${APP_VERSION}`
 
 /** Feature notes for the current MAJOR/MINOR release (shown after update). */
 export const APP_RELEASE_NOTES: string[] = [
-  '更新存星 Logo：更圓潤可愛的星星圖示',
+  '品牌更名為「慢存」',
+  '新增多款 Logo：蝸牛、火箭、心願幣、撲滿、宇宙火花、環繞星球',
+  '新增多款背景：銀河、星雲、極光、彗星',
 ]
 
 export type VersionBumpType = 'major' | 'minor' | 'patch' | 'none' | 'unknown'

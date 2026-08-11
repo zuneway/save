@@ -1,35 +1,80 @@
-/** Soft floating star / blob decorations for a youthful brand feel. */
+const STAR_PATH =
+  'M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z'
+
+/** Soft floating decorations — stars are faint, varied size, scattered. */
+const FLOATING_STARS = [
+  { top: '7%', left: '6%', size: 34, opacity: 0.14, rotate: -18, delay: '0s', duration: '9s' },
+  { top: '11%', left: '78%', size: 12, opacity: 0.1, rotate: 28, delay: '-1.4s', duration: '7.5s' },
+  { top: '18%', left: '42%', size: 9, opacity: 0.08, rotate: 8, delay: '-3.2s', duration: '11s' },
+  { top: '26%', left: '88%', size: 22, opacity: 0.12, rotate: -42, delay: '-2s', duration: '8.2s' },
+  { top: '31%', left: '14%', size: 16, opacity: 0.09, rotate: 55, delay: '-4.1s', duration: '10s' },
+  { top: '39%', left: '61%', size: 7, opacity: 0.07, rotate: -12, delay: '-0.8s', duration: '6.8s' },
+  { top: '48%', left: '3%', size: 26, opacity: 0.11, rotate: 16, delay: '-5s', duration: '12s' },
+  { top: '52%', left: '71%', size: 14, opacity: 0.09, rotate: -33, delay: '-2.7s', duration: '8.8s' },
+  { top: '61%', left: '29%', size: 10, opacity: 0.08, rotate: 40, delay: '-6.2s', duration: '9.4s' },
+  { top: '68%', left: '91%', size: 19, opacity: 0.1, rotate: -8, delay: '-1.1s', duration: '7.2s' },
+  { top: '74%', left: '18%', size: 8, opacity: 0.07, rotate: 22, delay: '-3.8s', duration: '10.5s' },
+  { top: '79%', left: '54%', size: 30, opacity: 0.12, rotate: -50, delay: '-4.6s', duration: '11.5s' },
+  { top: '86%', left: '82%', size: 11, opacity: 0.08, rotate: 14, delay: '-2.2s', duration: '8s' },
+  { top: '91%', left: '37%', size: 17, opacity: 0.09, rotate: -25, delay: '-5.5s', duration: '9.8s' },
+  { top: '15%', left: '58%', size: 6, opacity: 0.06, rotate: 70, delay: '-7s', duration: '6.4s' },
+] as const
+
+const SPARKS = [
+  { top: '22%', left: '33%', size: 4, delay: '0s', color: 'var(--accent)' },
+  { top: '44%', left: '84%', size: 3, delay: '-1.3s', color: 'var(--success-bright)' },
+  { top: '63%', left: '47%', size: 5, delay: '-2.4s', color: 'var(--warn)' },
+  { top: '83%', left: '11%', size: 3, delay: '-0.6s', color: 'var(--accent)' },
+  { top: '35%', left: '9%', size: 4, delay: '-3.1s', color: 'var(--success-bright)' },
+] as const
+
 export function BrandDecor() {
   return (
     <div className="brand-decor" aria-hidden="true">
       <span className="brand-decor-blob brand-decor-blob-a" />
       <span className="brand-decor-blob brand-decor-blob-b" />
       <span className="brand-decor-blob brand-decor-blob-c" />
-      <svg className="brand-decor-star brand-decor-star-1" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2.2 13.7 9l6.8.4-5.3 4.2 1.8 6.5L12 16.4 7 20.1l1.8-6.5L3.5 9.4 10.3 9z" />
-      </svg>
-      <svg className="brand-decor-star brand-decor-star-2" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 3.5 13.2 8.4l5 .5-3.8 3.1 1.2 4.8L12 14.4 8.4 16.8l1.2-4.8-3.8-3.1 5-.5z" />
-      </svg>
-      <svg className="brand-decor-star brand-decor-star-3" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2.8 13.4 8l5.6.4-4.4 3.5 1.5 5.4L12 14.4 8 17.3l1.5-5.4L5 8.4 10.6 8z" />
-      </svg>
-      <svg className="brand-decor-star brand-decor-star-4" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 4 13 8.2l4.3.4-3.3 2.6 1 4.1L12 13.2 8 15.3l1-4.1-3.3-2.6L10 8.2z" />
-      </svg>
-      <span className="brand-decor-spark brand-decor-spark-1" />
-      <span className="brand-decor-spark brand-decor-spark-2" />
-      <span className="brand-decor-spark brand-decor-spark-3" />
-    </div>
-  )
-}
 
-export function BrandMark({ size = 40 }: { size?: number }) {
-  const src = `${import.meta.env.BASE_URL}logo-128.png`
-  return (
-    <span className="brand-mark brand-mark-img" style={{ width: size, height: size }} aria-hidden="true">
-      <img src={src} alt="" width={size} height={size} decoding="async" />
-    </span>
+      {FLOATING_STARS.map((star, index) => (
+        <span
+          key={`star-${index}`}
+          className="brand-decor-star"
+          style={{
+            top: star.top,
+            left: star.left,
+            width: star.size,
+            height: star.size,
+            opacity: star.opacity,
+            animationDelay: star.delay,
+            animationDuration: star.duration,
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            style={{ transform: `rotate(${star.rotate}deg)` }}
+          >
+            <path d={STAR_PATH} />
+          </svg>
+        </span>
+      ))}
+
+      {SPARKS.map((spark, index) => (
+        <span
+          key={`spark-${index}`}
+          className="brand-decor-spark"
+          style={{
+            top: spark.top,
+            left: spark.left,
+            width: spark.size,
+            height: spark.size,
+            background: spark.color,
+            animationDelay: spark.delay,
+            opacity: 0.28,
+          }}
+        />
+      ))}
+    </div>
   )
 }
 

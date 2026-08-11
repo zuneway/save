@@ -55,66 +55,22 @@
 .brand-decor-star {
   position: absolute;
   color: var(--decor-star);
-  animation: brand-float 7s ease-in-out infinite;
+  animation-name: brand-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
 }
 
-.brand-decor-star-1 {
-  top: 12%;
-  left: 8%;
-  width: 28px;
-  height: 28px;
-}
-
-.brand-decor-star-2 {
-  top: 22%;
-  right: 10%;
-  width: 18px;
-  height: 18px;
-  animation-delay: -2s;
-}
-
-.brand-decor-star-3 {
-  bottom: 18%;
-  left: 14%;
-  width: 22px;
-  height: 22px;
-  animation-delay: -3.5s;
-}
-
-.brand-decor-star-4 {
-  top: 58%;
-  right: 16%;
-  width: 14px;
-  height: 14px;
-  animation-delay: -1s;
+.brand-decor-star svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .brand-decor-spark {
   position: absolute;
-  width: 6px;
-  height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  animation: brand-twinkle 3.2s ease-in-out infinite;
-}
-
-.brand-decor-spark-1 {
-  top: 34%;
-  left: 22%;
-}
-
-.brand-decor-spark-2 {
-  top: 16%;
-  right: 28%;
-  animation-delay: -1.2s;
-  background: var(--success-bright);
-}
-
-.brand-decor-spark-3 {
-  bottom: 28%;
-  right: 24%;
-  animation-delay: -2s;
-  background: var(--warn);
+  animation: brand-twinkle 3.6s ease-in-out infinite;
 }
 
 .brand-mark {
@@ -630,7 +586,7 @@
 
 .eyebrow {
   margin: 0 0 8px;
-  font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -3447,6 +3403,98 @@ body.wish-pool-open .page-header {
   margin-top: 2px;
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.logo-picker,
+.font-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.logo-option,
+.font-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.logo-option:hover,
+.logo-option:focus-visible,
+.font-option:hover,
+.font-option:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.logo-option.is-selected,
+.font-option.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.logo-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--field-bg);
+}
+
+.logo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.font-sample {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  min-width: 88px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--field-bg);
+  color: var(--ink-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.font-option[data-font-preview='modern'] .font-sample {
+  font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+}
+
+.font-option[data-font-preview='display'] .font-sample {
+  font-family: 'Fraunces', 'Noto Serif TC', serif;
+}
+
+.font-option[data-font-preview='rounded'] .font-sample {
+  font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+}
+
+.font-option[data-font-preview='serif'] .font-sample {
+  font-family: 'Noto Serif TC', serif;
+}
+
+.font-option[data-font-preview='soft'] .font-sample {
+  font-family: 'Nunito', 'Noto Sans TC', sans-serif;
 }
 
 .background-picker {

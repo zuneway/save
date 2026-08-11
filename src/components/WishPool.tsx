@@ -60,12 +60,12 @@ async function sendWishToGmail(content: string) {
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      _subject: '[存星許願池] 收到新意見，請安排修正',
+      _subject: '[慢存許願池] 收到新意見，請安排修正',
       _template: 'table',
       _captcha: 'false',
       message: content.trim(),
       source: 'savings-system wish pool',
-      tip: '請依此意見修正存星功能。',
+      tip: '請依此意見修正慢存功能。',
     }),
   })
 
