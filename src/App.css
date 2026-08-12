@@ -2320,7 +2320,23 @@
 .periodic-summary-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.periodic-summary-strip .stat-card {
+  min-width: 0;
+  padding: 12px 10px;
+}
+
+.periodic-summary-strip .stat-card span {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.periodic-summary-strip .stat-card strong {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
 }
 
 .periodic-plan-card .project-card-footer,
@@ -2334,6 +2350,53 @@
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.project-card-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  text-align: right;
+}
+
+.project-card-meta.is-due-today {
+  color: var(--warn);
+}
+
+.project-card-meta.is-overdue {
+  color: var(--danger);
+}
+
+.stage-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.stage-pill.is-done {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.stage-pill.is-pending {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+
+.project-card .progress-track {
+  margin-top: 12px;
+}
+
+.project-card .entity-note {
+  margin-top: 4px;
+  font-size: 0.86rem;
 }
 
 .deposit-priority-bar {
@@ -2923,7 +2986,20 @@ body.wish-pool-open .page-header {
   }
 
   .periodic-summary-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .periodic-summary-strip .stat-card {
+    padding: 10px 8px;
+  }
+
+  .periodic-summary-strip .stat-card span {
+    font-size: 0.72rem;
+  }
+
+  .periodic-summary-strip .stat-card strong {
+    font-size: 0.95rem;
   }
 
   .periodic-calendar-cell {

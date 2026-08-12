@@ -129,6 +129,15 @@ export function HomeScreen({
     if (selectedIds.length === 0) setSelectionMenuOpen(false)
   }, [selectedIds.length])
 
+  const totals = useMemo(() => {
+    const saved = projects.reduce((sum, project) => sum + project.currentAmount, 0)
+    const pending = projects.filter((project) => {
+      if (project.currentAmount >= project.targetAmount) return false
+      return !getCurrentStageStatus(project).done
+    }).length
+    return { saved, pending }
+  }, [projects])
+
   const projectsByFolder = useMemo(() => {
     const map = new Map<string | null, SavingsProject[]>()
     map.set(null, [])
@@ -297,26 +306,26 @@ export function HomeScreen({
                   toggleSelect(project.id)
                 }}
               />
-              <h2>{project.name}</h2>
+              <div>
+                <h2>{project.name}</h2>
+                {project.note?.trim() ? <p className="entity-note">{project.note}</p> : null}
+              </div>
             </div>
             <span className="progress-badge">{progress}%</span>
           </div>
-          <div
-            className={`stage-status ${stage.done ? 'is-done' : 'is-pending'}`}
-            aria-label={stage.label}
-          >
-            <span className="stage-status-dot" aria-hidden="true" />
-            <span>{stage.label}</span>
-          </div>
-          <p className="project-amounts">
-            {formatAmount(project.currentAmount)}
-            <span> / {formatAmount(project.targetAmount)}</span>
-          </p>
-          {project.note ? <p className="entity-note">{project.note}</p> : null}
-          <p className={`project-deadline ${deadlineClass}`}>{formatDeadlineSummary(project)}</p>
-          <p className="project-open-hint">點擊進入</p>
+
           <div className="progress-track" aria-hidden="true">
             <div className="progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div className="project-card-footer">
+            <span>
+              {formatAmount(project.currentAmount)} / {formatAmount(project.targetAmount)}
+            </span>
+            <span className={`project-card-meta ${deadlineClass}`}>
+              <em className={`stage-pill ${stage.done ? 'is-done' : 'is-pending'}`}>{stage.label}</em>
+              {formatDeadlineSummary(project)}
+            </span>
           </div>
         </div>
       </li>
@@ -473,6 +482,23 @@ export function HomeScreen({
           <p className="subtitle">{homeQuote}</p>
         </div>
       </header>
+
+      {projects.length > 0 ? (
+        <section className="periodic-summary-strip" aria-label="總覽">
+          <div className="stat-card">
+            <span>進行中專案</span>
+            <strong>{projects.length}</strong>
+          </div>
+          <div className="stat-card">
+            <span>累計已存</span>
+            <strong>{formatAmount(totals.saved)}</strong>
+          </div>
+          <div className="stat-card">
+            <span>待完成</span>
+            <strong>{totals.pending} 筆</strong>
+          </div>
+        </section>
+      ) : null}
 
       <section className="projects-section">
         {isGuest ? (

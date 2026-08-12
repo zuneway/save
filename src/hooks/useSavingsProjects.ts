@@ -27,11 +27,20 @@ import type {
 import { ALL_DETAIL_PANEL_IDS, DEFAULT_DETAIL_LAYOUT } from '../types/savings'
 import {
   DEFAULT_RANDOM_DEPOSIT,
+  defaultRandomDepositForMode,
+  getCurrentStageWindowKeys,
+  getPeriodContainingDate,
   getPlannedAmount,
   getProjectDateKeys,
   getRemainingAmount,
+  getSavingsIntervalDays,
+  getSuggestedPeriodAmount,
   getTodayDateInputValue,
+  isCurrentStageCompleted,
+  isRandomDepositActive,
+  listSavingsPeriods,
   regenerateFuturePlans,
+  supportsRandomDeposit,
 } from '../utils/deadline'
 import {
   defaultPeriodicPlanName,
@@ -49,7 +58,8 @@ import { isFirebaseConfigured } from '../lib/firebase'
 import { loadCloudMeta } from '../utils/cloudMeta'
 import { fetchCloudUserDoc, saveCloudUserDoc } from '../utils/cloudSync'
 
-const AUTO_COMPLETE_NOTE = '標記今日完成'
+const AUTO_COMPLETE_NOTE = '標記完成'
+const AUTO_COMPLETE_NOTE_LEGACY = '標記今日完成'
 const RANDOM_DEPOSIT_NOTE = '系統隨機分配'
 const EARLY_DEPOSIT_NOTE = '提早存入'
 const MAKEUP_DEPOSIT_NOTE = '補存入'
@@ -57,13 +67,17 @@ const TODAY_DEPOSIT_NOTE = '今日存入'
 const TODAY_QUICK_NOTE = '今日需存入'
 const CLOUD_PUSH_DEBOUNCE_MS = 800
 
-function isAutoTodayEntry(entry: SavingsEntry, today: string) {
+function isReversibleDepositEntry(entry: SavingsEntry, date: string) {
+  if (entry.date !== date) return false
+  const note = entry.note ?? ''
   return (
-    entry.date === today &&
-    (entry.note === AUTO_COMPLETE_NOTE ||
-      entry.note === RANDOM_DEPOSIT_NOTE ||
-      entry.note === TODAY_DEPOSIT_NOTE ||
-      entry.note === TODAY_QUICK_NOTE)
+    note === AUTO_COMPLETE_NOTE ||
+    note === AUTO_COMPLETE_NOTE_LEGACY ||
+    note === RANDOM_DEPOSIT_NOTE ||
+    note === TODAY_DEPOSIT_NOTE ||
+    note === TODAY_QUICK_NOTE ||
+    note.endsWith('快捷') ||
+    note.endsWith('需存入')
   )
 }
 
@@ -252,7 +266,7 @@ function normalizeProject(raw: unknown): SavingsProject | null {
           ? 30
           : 1
 
-  // Old "custom" freeform projects without interval → treat as daily.
+  // Old "custom" freeform projects without interval ? treat as daily.
   if (project.savingsMode === 'custom' && typeof project.intervalDays !== 'number') {
     intervalDays = 1
   }
@@ -262,7 +276,7 @@ function normalizeProject(raw: unknown): SavingsProject | null {
       ? Math.floor(project.periodAmount)
       : undefined
 
-  return {
+  const base: SavingsProject = {
     id: project.id,
     name: project.name,
     note,
@@ -280,6 +294,24 @@ function normalizeProject(raw: unknown): SavingsProject | null {
     plannedDeposits: normalizePlannedDeposits(project.plannedDeposits),
     detailLayout,
   }
+
+  if (base.randomDeposit.enabled) {
+    const periods = listSavingsPeriods(base)
+    const anchors = new Set(periods.map((period) => period.anchor))
+    const plannedAnchors = base.plannedDeposits.filter((item) => anchors.has(item.date))
+    const needsRepair =
+      periods.length > 0 &&
+      (base.plannedDeposits.length === 0 ||
+        (getSavingsIntervalDays(base) > 1 && plannedAnchors.length < periods.length))
+    if (needsRepair) {
+      return {
+        ...base,
+        plannedDeposits: regenerateFuturePlans(base, base.randomDeposit),
+      }
+    }
+  }
+
+  return base
 }
 
 function normalizeFolder(raw: unknown): ProjectFolder | null {
@@ -347,7 +379,7 @@ function normalizePeriodicPlan(raw: unknown): PeriodicPlan | null {
   const amount = Math.floor(plan.amount)
   if (amount < 1) return null
 
-  // Legacy "biweekly" → custom every 2 weeks.
+  // Legacy "biweekly" ? custom every 2 weeks.
   const legacy = raw as {
     frequency?: string
     intervalDays?: number
@@ -466,7 +498,7 @@ async function loadData(
     if (keyed) {
       const object = tryParseJsonObject(keyed)
       if (object && isEncryptedBlob(object)) {
-        if (!options.dataKey) throw new Error('需要密碼才能讀取加密資料')
+        if (!options.dataKey) throw new Error('????????????')
         const decrypted = await decryptJson<Partial<SavingsData>>(options.dataKey, keyed)
         return fromPartialSavingsData(decrypted)
       }
@@ -632,7 +664,7 @@ export function useSavingsProjects(
       } catch (error) {
         if (cancelled) return
         setData(emptySavingsData())
-        setStorageError(error instanceof Error ? error.message : '無法讀取加密資料')
+        setStorageError(error instanceof Error ? error.message : '????????')
         setStorageReady(false)
       }
     })()
@@ -739,7 +771,7 @@ export function useSavingsProjects(
       folderId: input.folderId ?? null,
       completedDates: [],
       entries: [],
-      randomDeposit: { ...DEFAULT_RANDOM_DEPOSIT },
+      randomDeposit: defaultRandomDepositForMode(savingsMode),
       plannedDeposits: [],
       detailLayout: [...DEFAULT_DETAIL_LAYOUT],
     }
@@ -862,58 +894,77 @@ export function useSavingsProjects(
     const today = getTodayDateInputValue()
     setDataStamped((prev) =>
       updateProject(prev, projectId, (project) => {
-        const completed = (project.completedDates ?? []).includes(today)
+        const stageDone = isCurrentStageCompleted(project)
+        const windowKeys = new Set(getCurrentStageWindowKeys(project))
+        const completedInWindow = (project.completedDates ?? []).filter((date) =>
+          windowKeys.has(date),
+        )
+        const currentPeriod = getPeriodContainingDate(project, today)
+        const preserveKey = currentPeriod?.anchor ?? today
+        const preservedTodayAmount = getPlannedAmount(project, today) ?? 0
         let nextProject: SavingsProject
 
-        // Capture before undo/complete so canceling does not change today's suggested amount.
-        const preservedTodayAmount = getPlannedAmount(project, today) ?? 0
-
-        if (completed) {
-          // Undo today's auto deposits so overview + detail list roll back together.
+        if (stageDone) {
+          const removeDates = new Set(
+            completedInWindow.length > 0 ? completedInWindow : [today],
+          )
           const removedAmount = project.entries
-            .filter((entry) => isAutoTodayEntry(entry, today))
+            .filter((entry) =>
+              [...removeDates].some((date) => isReversibleDepositEntry(entry, date)),
+            )
             .reduce((sum, entry) => sum + entry.amount, 0)
 
           nextProject = {
             ...project,
-            completedDates: project.completedDates.filter((date) => date !== today),
+            completedDates: project.completedDates.filter((date) => !removeDates.has(date)),
             currentAmount: Math.max(0, project.currentAmount - removedAmount),
-            entries: project.entries.filter((entry) => !isAutoTodayEntry(entry, today)),
+            entries: project.entries.filter(
+              (entry) =>
+                ![...removeDates].some((date) => isReversibleDepositEntry(entry, date)),
+            ),
           }
         } else {
           const planned = preservedTodayAmount
+          const suggested =
+            !isRandomDepositActive(project) && planned <= 0
+              ? getSuggestedPeriodAmount(project)
+              : 0
+          const depositAmount = Math.min(
+            Math.max(0, planned > 0 ? planned : suggested),
+            getRemainingAmount(project),
+          )
           const hasTodayEntry = project.entries.some((entry) => entry.date === today)
           const entries = [...project.entries]
           let currentAmount = project.currentAmount
 
-          // Sync overview progress + detail list when completing today.
-          if (planned > 0 && !hasTodayEntry) {
+          if (depositAmount > 0 && !hasTodayEntry) {
             entries.unshift({
               id: crypto.randomUUID(),
               date: today,
-              amount: planned,
+              amount: depositAmount,
               note: AUTO_COMPLETE_NOTE,
               createdAt: new Date().toISOString(),
             })
-            currentAmount += planned
+            currentAmount += depositAmount
           }
 
           nextProject = {
             ...project,
-            completedDates: [...project.completedDates, today].sort(),
+            completedDates: project.completedDates.includes(today)
+              ? project.completedDates
+              : [...project.completedDates, today].sort(),
             currentAmount,
             entries,
           }
         }
 
-        if (nextProject.randomDeposit.enabled) {
+        if (isRandomDepositActive(nextProject)) {
           return {
             ...nextProject,
             plannedDeposits: regenerateFuturePlans(
               nextProject,
               nextProject.randomDeposit,
-              // Keep today's suggested amount unchanged when canceling completion.
-              completed ? { [today]: preservedTodayAmount } : undefined,
+              stageDone ? { [preserveKey]: preservedTodayAmount } : undefined,
             ),
           }
         }
@@ -924,19 +975,36 @@ export function useSavingsProjects(
   }, [])
 
   const completePlannedDay = useCallback(
-    (projectId: string, date: string, kind: PlannedDayDepositKind) => {
+    (projectId: string, date: string, kind: PlannedDayDepositKind, amountOverride?: number) => {
       const today = getTodayDateInputValue()
       if (kind === 'early' && date <= today) return
       if (kind === 'makeup' && date >= today) return
-      if (kind === 'today' && date !== today) return
 
       setDataStamped((prev) =>
         updateProject(prev, projectId, (project) => {
-          if ((project.completedDates ?? []).includes(date)) return project
-          if (!getProjectDateKeys(project).includes(date)) return project
+          const depositDate = kind === 'today' ? today : date
 
-          const planned = getPlannedAmount(project, date) ?? 0
+          if (kind === 'today' && isCurrentStageCompleted(project)) return project
+          if ((project.completedDates ?? []).includes(depositDate)) return project
+
+          const keys = getProjectDateKeys(project)
+          if (keys.length > 0) {
+            if (kind === 'today') {
+              // Allow today even if slightly outside calendar keys due to timezone edge cases,
+              // as long as the project has started.
+              if (depositDate < keys[0]) return project
+            } else if (!keys.includes(depositDate)) {
+              return project
+            }
+          }
+
+          const planned =
+            typeof amountOverride === 'number' && amountOverride > 0
+              ? Math.floor(amountOverride)
+              : (getPlannedAmount(project, kind === 'today' ? today : depositDate) ?? 0)
           const amount = Math.min(Math.max(0, planned), getRemainingAmount(project))
+          if (amount <= 0) return project
+
           const note =
             kind === 'early'
               ? EARLY_DEPOSIT_NOTE
@@ -944,31 +1012,25 @@ export function useSavingsProjects(
                 ? MAKEUP_DEPOSIT_NOTE
                 : TODAY_DEPOSIT_NOTE
 
-          let entries = project.entries
-          let currentAmount = project.currentAmount
-
-          if (amount > 0) {
-            entries = [
+          const nextProject: SavingsProject = {
+            ...project,
+            completedDates: project.completedDates.includes(depositDate)
+              ? project.completedDates
+              : [...project.completedDates, depositDate].sort(),
+            currentAmount: project.currentAmount + amount,
+            entries: [
               {
                 id: crypto.randomUUID(),
-                date,
+                date: depositDate,
                 amount,
                 note,
                 createdAt: new Date().toISOString(),
               },
               ...project.entries,
-            ]
-            currentAmount += amount
+            ],
           }
 
-          const nextProject: SavingsProject = {
-            ...project,
-            completedDates: [...project.completedDates, date].sort(),
-            currentAmount,
-            entries,
-          }
-
-          if (nextProject.randomDeposit.enabled) {
+          if (isRandomDepositActive(nextProject)) {
             return {
               ...nextProject,
               plannedDeposits: regenerateFuturePlans(
@@ -997,7 +1059,7 @@ export function useSavingsProjects(
 
         const isToday = date === today
         const removable = project.entries.filter((entry) =>
-          isToday ? isAutoTodayEntry(entry, today) : isEarlyDepositEntry(entry, date),
+          isToday ? isReversibleDepositEntry(entry, today) : isEarlyDepositEntry(entry, date),
         )
         // Today may be marked complete with no matched entry; still allow un-complete.
         if (!isToday && removable.length === 0) return project
@@ -1013,7 +1075,7 @@ export function useSavingsProjects(
           entries: project.entries.filter((entry) => !removableIds.has(entry.id)),
         }
 
-        if (nextProject.randomDeposit.enabled) {
+        if (isRandomDepositActive(nextProject)) {
           return {
             ...nextProject,
             plannedDeposits: regenerateFuturePlans(nextProject, nextProject.randomDeposit, {
@@ -1049,8 +1111,8 @@ export function useSavingsProjects(
           entries: [entry, ...project.entries],
         }
 
-        // Rebalance remaining-day plans so they still match 剩餘金額.
-        if (nextProject.randomDeposit.enabled) {
+        // Rebalance remaining-day plans so they still match ????.
+        if (isRandomDepositActive(nextProject)) {
           return {
             ...nextProject,
             plannedDeposits: regenerateFuturePlans(nextProject, nextProject.randomDeposit),
@@ -1066,33 +1128,35 @@ export function useSavingsProjects(
     (projectId: string, input: UpdateRandomDepositInput) => {
       const minAmount = Math.min(input.minAmount, input.maxAmount)
       const maxAmount = Math.max(input.minAmount, input.maxAmount)
-      const settings: RandomDepositSettings = {
-        enabled: input.enabled,
-        minAmount,
-        maxAmount,
-      }
 
       setDataStamped((prev) =>
         updateProject(prev, projectId, (project) => {
-          const shouldRegenerate =
-            input.regeneratePlan ||
-            settings.enabled ||
-            project.plannedDeposits.length === 0 ||
-            project.randomDeposit.minAmount !== settings.minAmount ||
-            project.randomDeposit.maxAmount !== settings.maxAmount
+          const enabled = supportsRandomDeposit(project) && input.enabled
+          const settings: RandomDepositSettings = {
+            enabled,
+            minAmount,
+            maxAmount,
+          }
 
-          const nextLayout =
-            settings.enabled
-              ? normalizeDetailLayout(project.detailLayout.filter((id) => id !== 'deposit'))
-              : project.detailLayout
+          const shouldRegenerate =
+            enabled &&
+            (input.regeneratePlan ||
+              project.plannedDeposits.length === 0 ||
+              project.randomDeposit.minAmount !== settings.minAmount ||
+              project.randomDeposit.maxAmount !== settings.maxAmount)
+
+          const nextLayout = enabled
+            ? normalizeDetailLayout(project.detailLayout.filter((id) => id !== 'deposit'))
+            : project.detailLayout
 
           return {
             ...project,
             randomDeposit: settings,
-            plannedDeposits: shouldRegenerate
-              ? regenerateFuturePlans(project, settings)
-              : project.plannedDeposits,
-            // After enabling random allocation, auto-hide the deposit settings panel.
+            plannedDeposits: enabled
+              ? shouldRegenerate
+                ? regenerateFuturePlans(project, settings)
+                : project.plannedDeposits
+              : [],
             detailLayout: nextLayout,
           }
         }),
@@ -1103,10 +1167,13 @@ export function useSavingsProjects(
 
   const regenerateRandomPlan = useCallback((projectId: string) => {
     setDataStamped((prev) =>
-      updateProject(prev, projectId, (project) => ({
-        ...project,
-        plannedDeposits: regenerateFuturePlans(project, project.randomDeposit),
-      })),
+      updateProject(prev, projectId, (project) => {
+        if (!isRandomDepositActive(project)) return project
+        return {
+          ...project,
+          plannedDeposits: regenerateFuturePlans(project, project.randomDeposit),
+        }
+      }),
     )
   }, [])
 

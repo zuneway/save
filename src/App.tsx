@@ -244,8 +244,8 @@ function AuthenticatedApp({
           project={activeProject}
           onBack={() => setActiveProjectId(null)}
           onToggleTodayComplete={() => toggleTodayComplete(activeProject.id)}
-          onCompletePlannedDay={(date, kind) =>
-            completePlannedDay(activeProject.id, date, kind)
+          onCompletePlannedDay={(date, kind, amount) =>
+            completePlannedDay(activeProject.id, date, kind, amount)
           }
           onUndoEarlyDeposit={(date) => undoEarlyDeposit(activeProject.id, date)}
           onAddEntry={(input) => addEntry(activeProject.id, input)}

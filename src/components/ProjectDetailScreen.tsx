@@ -13,7 +13,9 @@ import {
 } from '../types/savings'
 import {
   formatTargetDate,
+  getCompletePanelTitle,
   getCompletedDaysCount,
+  getCurrentStageStatus,
   getElapsedDays,
   getMissedDates,
   getOpenPlanDates,
@@ -23,11 +25,18 @@ import {
   getRemainingDays,
   getSuggestedPeriodAmount,
   getSavingsModeLabel,
+  getDayChartPanelTitle,
+  getRandomDepositToggleLabel,
+  getRandomPlanPanelTitle,
+  getStageDepositNeedLabel,
+  getStagePeriodNoun,
   getTargetDate,
   getTodayDateInputValue,
   getTotalDays,
   getUpcomingIncompleteDates,
-  isTodayCompleted,
+  isCurrentStageCompleted,
+  isRandomDepositActive,
+  supportsRandomDeposit,
 } from '../utils/deadline'
 import { formatAmount, parseAmount } from '../utils/money'
 import { CollapsiblePanel } from './CollapsiblePanel'
@@ -43,7 +52,7 @@ interface ProjectDetailScreenProps {
   project: SavingsProject
   onBack: () => void
   onToggleTodayComplete: () => void
-  onCompletePlannedDay: (date: string, kind: PlannedDayDepositKind) => void
+  onCompletePlannedDay: (date: string, kind: PlannedDayDepositKind, amount?: number) => void
   onUndoEarlyDeposit: (date: string) => void
   onAddEntry: (input: AddEntryInput) => void
   onUpdateRandomDeposit: (input: UpdateRandomDepositInput) => void
@@ -100,7 +109,9 @@ export function ProjectDetailScreen({
 }: ProjectDetailScreenProps) {
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
-  const [randomEnabled, setRandomEnabled] = useState(project.randomDeposit.enabled)
+  const randomAllowed = supportsRandomDeposit(project)
+  const randomActive = isRandomDepositActive(project)
+  const [randomEnabled, setRandomEnabled] = useState(randomActive)
   const [minAmount, setMinAmount] = useState(String(project.randomDeposit.minAmount))
   const [maxAmount, setMaxAmount] = useState(String(project.randomDeposit.maxAmount))
   const [makeupDate, setMakeupDate] = useState('')
@@ -128,10 +139,10 @@ export function ProjectDetailScreen({
   }
 
   useEffect(() => {
-    setRandomEnabled(project.randomDeposit.enabled)
+    setRandomEnabled(isRandomDepositActive(project))
     setMinAmount(String(project.randomDeposit.minAmount))
     setMaxAmount(String(project.randomDeposit.maxAmount))
-  }, [project.id, project.randomDeposit])
+  }, [project.id, project.randomDeposit, project.savingsMode])
 
   useEffect(() => {
     const current = project.currentAmount
@@ -156,18 +167,40 @@ export function ProjectDetailScreen({
   const progress = getProgress(project.currentAmount, project.targetAmount)
   const suggestedPeriodAmount = getSuggestedPeriodAmount(project)
   const periodLabel = getSavingsModeLabel(project)
+  const periodNoun = getStagePeriodNoun(project)
+  const stageNeedLabel = getStageDepositNeedLabel(project)
+  const stageStatus = getCurrentStageStatus(project)
+  const stageCompleted = isCurrentStageCompleted(project)
   const periodNote = `${periodLabel}快捷`
   const today = getTodayDateInputValue()
   const todayPlan = getPlannedAmount(project, today)
   const randomTodayAmount =
-    project.randomDeposit.enabled && todayPlan != null && todayPlan > 0 ? todayPlan : null
+    randomActive && todayPlan != null && todayPlan > 0 ? todayPlan : null
   const quickPrimaryAmount =
     randomTodayAmount ?? (suggestedPeriodAmount > 0 ? suggestedPeriodAmount : null)
-  const quickPrimaryLabel = randomTodayAmount != null ? '今日' : periodLabel
-  const quickPrimaryNote = randomTodayAmount != null ? '今日需存入' : periodNote
+  const quickPrimaryLabel = randomTodayAmount != null ? periodNoun : periodLabel
+  const quickPrimaryNote = randomTodayAmount != null ? `${periodNoun}需存入` : periodNote
+  const overviewDepositAmount =
+    randomTodayAmount ?? (suggestedPeriodAmount > 0 ? suggestedPeriodAmount : null)
+  const totalDays = getTotalDays(project)
+  const remainingDays = getRemainingDays(project)
+  const completedDays = getCompletedDaysCount(project)
+  const elapsedDays = getElapsedDays(project)
+  const targetDate = getTargetDate(project)
+  const remainingAmount = getRemainingAmount(project)
+  const openPlanTotal = getOpenPlanTotal(project)
+  const quickDepositDisabled =
+    quickPrimaryAmount == null ||
+    quickPrimaryAmount <= 0 ||
+    quickPrimaryAmount > remainingAmount ||
+    stageCompleted ||
+    project.currentAmount >= project.targetAmount
 
   const quickDeposit = (value: number, depositNote?: string) => {
     if (value <= 0) return
+    if (isCurrentStageCompleted(project)) return
+    if (project.currentAmount >= project.targetAmount) return
+    if (value > getRemainingAmount(project)) return
     onAddEntry({
       amount: value,
       note: depositNote,
@@ -176,21 +209,13 @@ export function ProjectDetailScreen({
     setAmount('')
     setNote('')
   }
-  const totalDays = getTotalDays(project)
-  const remainingDays = getRemainingDays(project)
-  const completedDays = getCompletedDaysCount(project)
-  const elapsedDays = getElapsedDays(project)
-  const todayCompleted = isTodayCompleted(project)
-  const targetDate = getTargetDate(project)
-  const remainingAmount = getRemainingAmount(project)
-  const openPlanTotal = getOpenPlanTotal(project)
 
   // After random plan is ready, keep the amount field synced to today's assigned amount.
   useEffect(() => {
     if (randomTodayAmount == null) return
-    if (todayCompleted) return
+    if (stageCompleted) return
     setAmount(String(randomTodayAmount))
-  }, [project.id, randomTodayAmount, todayCompleted])
+  }, [project.id, randomTodayAmount, stageCompleted])
 
   const dayProgress = useMemo(() => {
     if (totalDays <= 0) return 0
@@ -214,7 +239,8 @@ export function ProjectDetailScreen({
   const availablePanels = ALL_DETAIL_PANEL_IDS.filter((id) => {
     if (layout.includes(id)) return false
     // After random allocation auto-hides deposit settings, do not allow re-adding it.
-    if (id === 'deposit' && project.randomDeposit.enabled) return false
+    if (id === 'deposit' && randomActive) return false
+    if (id === 'randomPlanTable' && !randomAllowed) return false
     return true
   })
 
@@ -292,13 +318,17 @@ export function ProjectDetailScreen({
                 <span>剩餘金額</span>
                 <strong>{formatAmount(remainingAmount)}</strong>
               </div>
-              <div className={`stat-card today-deposit-card ${todayCompleted ? 'is-done' : 'is-pending'}`}>
-                <span>今日需要存入</span>
+              <div className={`stat-card today-deposit-card ${stageCompleted ? 'is-done' : 'is-pending'}`}>
+                <span>{stageNeedLabel}</span>
                 <strong>
-                  {todayPlan != null && todayPlan > 0 ? formatAmount(todayPlan) : '尚未分配'}
+                  {overviewDepositAmount != null
+                    ? formatAmount(overviewDepositAmount)
+                    : randomAllowed
+                      ? '尚未分配'
+                      : '—'}
                 </strong>
-                <em className={`today-complete-badge ${todayCompleted ? 'is-done' : 'is-pending'}`}>
-                  {todayCompleted ? '已完成' : '未完成'}
+                <em className={`today-complete-badge ${stageCompleted ? 'is-done' : 'is-pending'}`}>
+                  {stageStatus.done ? '已完成' : '未完成'}
                 </em>
               </div>
             </div>
@@ -338,19 +368,21 @@ export function ProjectDetailScreen({
           <>
             <div className="day-complete-row">
               <div>
-                <p className={`today-status ${todayCompleted ? 'is-done' : 'is-pending'}`}>
-                  今天{todayCompleted ? '已完成' : '尚未完成'}
+                <p className={`today-status ${stageCompleted ? 'is-done' : 'is-pending'}`}>
+                  {stageStatus.label}
                 </p>
                 <p className="field-hint">
-                  完成天數 {completedDays} / {totalDays}（{dayProgress}%）
+                  {periodLabel === '日存' || randomActive
+                    ? `完成天數 ${completedDays} / ${totalDays}（${dayProgress}%）`
+                    : `${periodLabel} · 已完成 ${completedDays} 次（目標期間 ${totalDays} 天）`}
                 </p>
               </div>
               <button
                 type="button"
-                className={`button ${todayCompleted ? 'button-secondary' : 'button-primary'}`}
+                className={`button ${stageCompleted ? 'button-secondary' : 'button-primary'}`}
                 onClick={onToggleTodayComplete}
               >
-                {todayCompleted ? '取消今日完成' : '標記今日完成'}
+                {stageCompleted ? `取消${periodNoun}完成` : `標記${periodNoun}完成`}
               </button>
             </div>
             <div className="mini-progress">
@@ -359,10 +391,11 @@ export function ProjectDetailScreen({
               </div>
             </div>
 
+            {randomActive ? (
             <div className="catchup-actions">
               <div className="catchup-field">
                 <label className="field">
-                  <span>補存入（未完成天）</span>
+                  <span>補存入（未完成期）</span>
                   <select
                     value={makeupDate}
                     onChange={(event) => setMakeupDate(event.target.value)}
@@ -407,7 +440,7 @@ export function ProjectDetailScreen({
 
               <div className="catchup-field">
                 <label className="field">
-                  <span>提早存入（未來天）</span>
+                  <span>提早存入（未來期）</span>
                   <select
                     value={earlyDate}
                     onChange={(event) => setEarlyDate(event.target.value)}
@@ -450,11 +483,17 @@ export function ProjectDetailScreen({
                 </button>
               </div>
             </div>
+            ) : (
+              <p className="field-hint">
+                {periodLabel}節奏下，每期存入一次即可。可用上方快捷存入{periodNoun}建議金額。
+              </p>
+            )}
           </>
         )
       case 'deposit':
         return (
           <>
+            {randomAllowed ? (
             <div className="deposit-section">
               <h3 className="section-subtitle">隨機分配</h3>
               <form className="entry-form" onSubmit={handleSaveRandomSettings}>
@@ -464,7 +503,7 @@ export function ProjectDetailScreen({
                     checked={randomEnabled}
                     onChange={(event) => setRandomEnabled(event.target.checked)}
                   />
-                  <span>啟用每日隨機分配</span>
+                  <span>{getRandomDepositToggleLabel(project)}</span>
                 </label>
 
                 {randomEnabled && (
@@ -502,16 +541,16 @@ export function ProjectDetailScreen({
                         type="button"
                         className="button button-secondary"
                         onClick={handleRegenerateRandomPlan}
-                        disabled={!project.randomDeposit.enabled}
+                        disabled={!randomActive}
                       >
-                        重抽剩餘天數
+                        重抽剩餘{project.savingsMode === 'daily' ? '天數' : project.savingsMode === 'weekly' ? '週次' : project.savingsMode === 'monthly' ? '月份' : '期數'}
                       </button>
                     </div>
                   </>
                 )}
               </form>
 
-              {project.randomDeposit.enabled && (
+              {randomActive && (
                 <div className="random-summary">
                   <p>
                     金額間距：{formatAmount(project.randomDeposit.minAmount)} ~{' '}
@@ -538,16 +577,29 @@ export function ProjectDetailScreen({
                     disabled={
                       todayPlan == null ||
                       todayPlan <= 0 ||
-                      todayCompleted ||
+                      stageCompleted ||
                       todayPlan > remainingAmount
                     }
                   >
-                    存入今日隨機金額
+                    存入{periodNoun}隨機金額
                     {todayPlan != null && todayPlan > 0 ? `（${formatAmount(todayPlan)}）` : ''}
                   </button>
                 </div>
               )}
             </div>
+            ) : (
+            <div className="deposit-section">
+              <h3 className="section-subtitle">{periodLabel}計畫</h3>
+              <p className="field-hint">
+                此專案為{periodLabel}節奏。可啟用{getRandomDepositToggleLabel(project).replace('啟用', '')}，或使用固定建議金額。
+              </p>
+              {suggestedPeriodAmount > 0 ? (
+                <p>
+                  {periodNoun}建議金額：<strong>{formatAmount(suggestedPeriodAmount)}</strong>
+                </p>
+              ) : null}
+            </div>
+            )}
 
             <div className="deposit-section">
               <h3 className="section-subtitle">手動新增存錢</h3>
@@ -597,7 +649,7 @@ export function ProjectDetailScreen({
                   />
                 </label>
                 <button type="submit" className="button button-primary">
-                  存入並標記今日完成
+                  {stageCompleted ? '額外存入' : `存入並標記${periodNoun}完成`}
                 </button>
               </form>
 
@@ -607,12 +659,11 @@ export function ProjectDetailScreen({
                     type="button"
                     className="button button-secondary"
                     onClick={() => quickDeposit(quickPrimaryAmount, quickPrimaryNote)}
-                    disabled={
-                      quickPrimaryAmount > remainingAmount ||
-                      (randomTodayAmount != null && todayCompleted)
-                    }
+                    disabled={quickDepositDisabled}
                   >
-                    一鍵存入{quickPrimaryLabel}額（{formatAmount(quickPrimaryAmount)}）
+                    {stageCompleted
+                      ? `${periodNoun}已完成`
+                      : `一鍵存入${quickPrimaryLabel}額（${formatAmount(quickPrimaryAmount)}）`}
                   </button>
                 </div>
               ) : null}
@@ -620,7 +671,7 @@ export function ProjectDetailScreen({
           </>
         )
       case 'randomPlanTable':
-        return project.randomDeposit.enabled ? (
+        return randomActive ? (
           <RandomPlanTable
             project={project}
             onCompletePlannedDay={onCompletePlannedDay}
@@ -730,12 +781,20 @@ export function ProjectDetailScreen({
         {project.note ? <p className="entity-note">{project.note}</p> : null}
 
         {randomTodayAmount != null ? (
-          <div className={`today-save-tip ${todayCompleted ? 'is-done' : 'is-pending'}`}>
+          <div className={`today-save-tip ${stageCompleted ? 'is-done' : 'is-pending'}`}>
             <div>
-              <span>今日需存入金額</span>
+              <span>{stageNeedLabel}</span>
               <strong>{formatAmount(randomTodayAmount)}</strong>
             </div>
-            <em>{todayCompleted ? '今日已完成' : '請依此金額存入'}</em>
+            <em>{stageCompleted ? stageStatus.label : '請依此金額存入'}</em>
+          </div>
+        ) : quickPrimaryAmount != null ? (
+          <div className={`today-save-tip ${stageCompleted ? 'is-done' : 'is-pending'}`}>
+            <div>
+              <span>{stageNeedLabel}</span>
+              <strong>{formatAmount(quickPrimaryAmount)}</strong>
+            </div>
+            <em>{stageCompleted ? stageStatus.label : `請依此金額存入`}</em>
           </div>
         ) : null}
 
@@ -746,12 +805,11 @@ export function ProjectDetailScreen({
               type="button"
               className="button button-primary button-compact"
               onClick={() => quickDeposit(quickPrimaryAmount, quickPrimaryNote)}
-              disabled={
-                quickPrimaryAmount > remainingAmount ||
-                (randomTodayAmount != null && todayCompleted)
-              }
+              disabled={quickDepositDisabled}
             >
-              快捷存入 {formatAmount(quickPrimaryAmount)}
+              {stageCompleted
+                ? `${periodNoun}已完成`
+                : `快捷存入 ${formatAmount(quickPrimaryAmount)}`}
             </button>
           </div>
         ) : (
@@ -792,7 +850,15 @@ export function ProjectDetailScreen({
                       onClick={() => handleAddPanel(panelId)}
                     >
                       <span>
-                        <strong>{DETAIL_PANEL_META[panelId].title}</strong>
+                        <strong>
+                          {panelId === 'dailyComplete'
+                            ? getCompletePanelTitle(project)
+                            : panelId === 'randomPlanTable'
+                              ? getRandomPlanPanelTitle(project)
+                              : panelId === 'dayChart'
+                                ? getDayChartPanelTitle(project)
+                                : DETAIL_PANEL_META[panelId].title}
+                        </strong>
                       </span>
                     </button>
                   ))
@@ -809,7 +875,15 @@ export function ProjectDetailScreen({
         renderItem={(panelId, { dragging, onDragStart, onDragEnd }) => (
           <CollapsiblePanel
             key={panelId}
-            title={DETAIL_PANEL_META[panelId].title}
+            title={
+              panelId === 'dailyComplete'
+                ? getCompletePanelTitle(project)
+                : panelId === 'randomPlanTable'
+                  ? getRandomPlanPanelTitle(project)
+                  : panelId === 'dayChart'
+                    ? getDayChartPanelTitle(project)
+                    : DETAIL_PANEL_META[panelId].title
+            }
             defaultOpen={
               panelId === 'dayChart' || panelId === 'randomPlanTable'
                 ? false
@@ -869,12 +943,12 @@ export function ProjectDetailScreen({
             <p className="random-tip-lead">歡迎進入專案頁面，可以這樣開始：</p>
             <ul className="random-tip-list">
               <li>
-                到「存入金額設定」輸入今日存入金額，或用快捷鍵一鍵存入
+                到「存入金額設定」輸入{periodNoun}存入金額，或用快捷鍵一鍵存入
               </li>
               <li>
-                也可以選擇啟用「隨機分配」，讓系統自動排出每日需存入金額
+                也可以選擇啟用「隨機分配」，讓系統依{periodLabel}節奏自動排出每期需存入金額
               </li>
-              <li>存入後可在進度總覽查看今日是否完成</li>
+              <li>存入後可在進度總覽查看{periodNoun}是否完成</li>
             </ul>
             <div className="modal-actions">
               <button type="button" className="button button-primary" onClick={closeFirstVisitGuide}>
